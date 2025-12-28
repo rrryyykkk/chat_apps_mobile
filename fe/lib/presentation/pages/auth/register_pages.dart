@@ -3,9 +3,15 @@ import 'dart:ui';
 
 import 'package:fe/config/app_color.dart';
 import 'package:fe/presentation/routes/app_routes.dart';
+import 'package:fe/core/widgets/primary_button.dart';
+import 'package:fe/presentation/pages/auth/widgets/register_steps.dart'; // New Import
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+/// [RegisterPages] adalah halaman pendaftaran pengguna baru yang terdiri dari beberapa langkah (Multi-step).
+/// Langkah 1: Input Email.
+/// Langkah 2: Input Nama Lengkap & Foto Profil.
+/// Langkah 3: Input Password & Konfirmasi.
 class RegisterPages extends StatefulWidget {
   const RegisterPages({super.key});
 
@@ -14,34 +20,71 @@ class RegisterPages extends StatefulWidget {
 }
 
 class _RegisterPagesState extends State<RegisterPages> {
-  final _pagesController = PageController();
   int _currentStep = 0;
 
-  // controllersnya
+  // Kontroller untuk menangkap input teks dari pengguna
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
+
   bool _isObscure1 = true;
   bool _isObscure2 = true;
   File? _image;
 
   final picker = ImagePicker();
 
+  /// Fungsi untuk memilih gambar profil, memberikan pilihan antara Kamera atau Galeri.
   Future<void> _pickImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() => _image = File(pickedFile.path));
-    }
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: theme.colorScheme.surface,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          const Text(
+            "Pilih Foto Profil",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            leading: const Icon(Icons.camera_alt, color: AppColors.blue_500),
+            title: const Text("Kamera"),
+            onTap: () async {
+              Navigator.pop(context);
+              final pickedFile = await picker.pickImage(
+                source: ImageSource.camera,
+              );
+              if (pickedFile != null)
+                setState(() => _image = File(pickedFile.path));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library, color: AppColors.blue_500),
+            title: const Text("Galeri"),
+            onTap: () async {
+              Navigator.pop(context);
+              final pickedFile = await picker.pickImage(
+                source: ImageSource.gallery,
+              );
+              if (pickedFile != null)
+                setState(() => _image = File(pickedFile.path));
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
   }
 
   void _nextStep() {
     if (_currentStep < 2) {
       setState(() => _currentStep++);
-      _pagesController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
     } else {
       _finishRegister();
     }
@@ -50,20 +93,45 @@ class _RegisterPagesState extends State<RegisterPages> {
   void _prevStep() {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
-      _pagesController.previousPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
     } else {
       Navigator.pushReplacementNamed(context, AppRoutes.login);
     }
   }
 
-  void _finishRegister() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Register Complete')));
-    Navigator.pushReplacementNamed(context, AppRoutes.home);
+  bool _isLoading = false;
+
+  void _finishRegister() async {
+    setState(() => _isLoading = true);
+    // Simulate network request
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("Register Complete!"),
+        backgroundColor: AppColors.green_500,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    Navigator.pushReplacementNamed(context, AppRoutes.verification);
+  }
+
+  // Password Logic
+  bool _min8Char = false;
+  bool _hasUpper = false;
+  bool _hasLower = false;
+  bool _hasDigit = false;
+
+  void _checkPassword(String val) {
+    setState(() {
+      _min8Char = val.length >= 8;
+      _hasUpper = val.contains(RegExp(r'[A-Z]'));
+      _hasLower = val.contains(RegExp(r'[a-z]'));
+      _hasDigit = val.contains(RegExp(r'[0-9]'));
+    });
   }
 
   @override
@@ -86,20 +154,13 @@ class _RegisterPagesState extends State<RegisterPages> {
               ),
             ),
           ),
-          // glassMorphism Overlay
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.white.withValues(alpha: 0.05)),
-            ),
-          ),
           // Page Content
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
                 children: [
-                  // top bar
+                  // Top Bar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -121,7 +182,7 @@ class _RegisterPagesState extends State<RegisterPages> {
                     ],
                   ),
                   const SizedBox(height: 40),
-                  // animated steps
+                  // Animated Steps
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 400),
@@ -138,19 +199,10 @@ class _RegisterPagesState extends State<RegisterPages> {
                               ),
                             );
                           },
-                      child: PageView(
-                        key: ValueKey(_currentStep),
-                        controller: _pagesController,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildEmailStep(theme),
-                          _buildPasswordStep(theme),
-                          _buildProfileStep(theme),
-                        ],
-                      ),
+                      child: _buildStepContent(),
                     ),
                   ),
-                  // proges indicator
+                  // Progress Indicator
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Column(
@@ -177,38 +229,18 @@ class _RegisterPagesState extends State<RegisterPages> {
                         Text(
                           "Step #${_currentStep + 1} of 3",
                           style: theme.textTheme.bodyMedium!.copyWith(
-                            color: AppColors.blue_600,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // next Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primary,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _nextStep,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          _currentStep == 2 ? "Finish" : "Next",
-                          style: theme.textTheme.bodyMedium!.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
+                  // Next Button
+                  PrimaryButton(
+                    text: _currentStep == 2 ? "Finish" : "Next",
+                    isLoading: _isLoading,
+                    onPressed: _nextStep,
+                    borderRadius: 14,
                   ),
                 ],
               ),
@@ -219,151 +251,33 @@ class _RegisterPagesState extends State<RegisterPages> {
     );
   }
 
-  // step 1
-  Widget _buildEmailStep(ThemeData theme) {
-    return Column(
-      key: const ValueKey(0),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Enter Your Email",
-          style: theme.textTheme.headlineSmall!.copyWith(
-            color: AppColors.lightBlue_400,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          "We’ll send a confirmation link to verify your account.",
-          style: theme.textTheme.bodyMedium!.copyWith(
-            color: AppColors.lightBlue_400,
-          ),
-        ),
-        const SizedBox(height: 80),
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            labelText: "Email",
-            prefixIcon: const Icon(
-              Icons.email_outlined,
-              color: AppColors.blue_500,
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ],
-    );
-  }
-  // step 2
-
-  Widget _buildPasswordStep(ThemeData theme) {
-    return Column(
-      key: const ValueKey(1),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Create your Password",
-          style: theme.textTheme.headlineLarge!.copyWith(
-            color: AppColors.blue_500,
-          ),
-        ),
-        const SizedBox(height: 60),
-        TextField(
-          controller: _passwordController,
-          decoration: InputDecoration(
-            labelText: "Password",
-            prefixIcon: const Icon(
-              Icons.lock_outlined,
-              color: AppColors.blue_500,
-            ),
-            suffixIcon: IconButton(
-              onPressed: () => setState(() => _isObscure1 = !_isObscure1),
-              icon: Icon(
-                _isObscure1 ? Icons.visibility_off : Icons.visibility,
-                color: AppColors.neutral_500,
-              ),
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _confirmPasswordController,
-          decoration: InputDecoration(
-            labelText: "Confirm Password",
-            prefixIcon: const Icon(
-              Icons.lock_outlined,
-              color: AppColors.blue_500,
-            ),
-            suffixIcon: IconButton(
-              onPressed: () => setState(() => _isObscure2 = !_isObscure2),
-              icon: Icon(
-                _isObscure2 ? Icons.visibility_off : Icons.visibility,
-                color: AppColors.neutral_500,
-              ),
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // step 3
-  Widget _buildProfileStep(ThemeData theme) {
-    return Column(
-      key: const ValueKey(2),
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          "Profile Setup",
-          style: theme.textTheme.headlineLarge!.copyWith(
-            color: AppColors.blue_500,
-          ),
-        ),
-        const SizedBox(height: 40),
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            CircleAvatar(
-              radius: 55,
-              backgroundColor: AppColors.blue_100,
-              backgroundImage: _image != null
-                  ? FileImage(_image!)
-                  : const AssetImage('assets/avatar/avatarUser.svg')
-                        as ImageProvider,
-            ),
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: AppColors.blue_500,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.edit, size: 16, color: Colors.white),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        TextField(
+  Widget _buildStepContent() {
+    switch (_currentStep) {
+      case 0:
+        return EmailStep(controller: _emailController);
+      case 1:
+        return NameStep(
           controller: _nameController,
-          decoration: InputDecoration(
-            labelText: "Full Name",
-            prefixIcon: const Icon(
-              Icons.person_outlined,
-              color: AppColors.neutral_700,
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ],
-    );
+          image: _image,
+          onPickImage: _pickImage,
+        );
+      case 2:
+        return PasswordStep(
+          passwordController: _passwordController,
+          confirmPasswordController: _confirmPasswordController,
+          isObscure1: _isObscure1,
+          isObscure2: _isObscure2,
+          onToggleObscure1: () => setState(() => _isObscure1 = !_isObscure1),
+          onToggleObscure2: () => setState(() => _isObscure2 = !_isObscure2),
+          onPasswordChanged: _checkPassword,
+          min8Char: _min8Char,
+          hasUpper: _hasUpper,
+          hasLower: _hasLower,
+          hasDigit: _hasDigit,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }
 

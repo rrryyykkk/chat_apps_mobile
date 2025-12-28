@@ -42,10 +42,14 @@ class _SplashPageState extends State<SplashPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: AppColors.primary,
+        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Lottie.asset(
               "assets/animation/logo_white.json",
@@ -56,14 +60,20 @@ class _SplashPageState extends State<SplashPage>
                 _controller.forward();
               },
             ),
-
             const SizedBox(height: 16),
-
+            Text(
+              "Chat App",
+              style: Theme.of(context).textTheme.headlineMedium!.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
             Text(
               "V1.0.0",
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium!.copyWith(color: AppColors.blue_300),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    color: Colors.white70,
+                  ),
             ),
           ],
         ),

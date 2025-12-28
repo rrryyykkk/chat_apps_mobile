@@ -1,5 +1,5 @@
 import 'package:fe/config/app_color.dart';
-import 'package:fe/presentation/pages/auth/login_pages.dart';
+import 'package:fe/presentation/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -44,10 +44,7 @@ class _GetStartedPageState extends State<GetStartedPage> {
         curve: Curves.easeInOut,
       );
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPages()),
-      );
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
     }
   }
 
@@ -160,11 +157,9 @@ class _GetStartedPageState extends State<GetStartedPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           GestureDetector(
-                            onTap: () => Navigator.pushReplacement(
+                            onTap: () => Navigator.pushReplacementNamed(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) => const LoginPages(),
-                              ),
+                              AppRoutes.login,
                             ),
                             child: Text(
                               "Skip",
