@@ -1,0 +1,167 @@
+generator db {
+  provider = "go run github.com/steebchen/prisma-client-go"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  avatarUrl String?
+  color     String?  // Hex color code
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chats        Participant[]
+  messages     Message[]
+  statuses     Status[]
+  otps         OTP[]
+  refreshTokens RefreshToken[]
+  statusLikes  StatusLike[]
+  statusViews  StatusViewer[]
+
+  @@index([email])
+}
+
+model Chat {
+  id          String   @id @default(cuid())
+  name        String?  // Untuk grup
+  icon        String?
+  isGroup     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants Participant[]
+  messages     Message[]
+
+  @@index([createdAt])
+}
+
+model Participant {
+  userId String
+  chatId String
+  user   User   @relation(fields: [userId], references: [id])
+  chat   Chat   @relation(fields: [chatId], references: [id])
+
+  @@id([userId, chatId])
+  @@index([userId])
+  @@index([chatId])
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+model Status {
+  id        String    @id @default(cuid())
+  userId    String
+  mediaUrl  String
+  caption   String?
+  type      MediaType @default(IMAGE)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime  // Logic: createdAt + 24 hours
+
+  user      User      @relation(fields: [userId], references: [id])
+  likes     StatusLike[]
+  viewers   StatusViewer[]
+  replies   Message[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model OTP {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, code])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([token])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  DOCUMENT
+  INFO
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  senderId  String
+  chatId    String
+  content   String
+  timestamp DateTime @default(now())
+    editedAt DateTime? // optional edited timestamp
+  type      MessageType @default(TEXT)
+  status    MessageStatus @default(SENT)
+  isDeleted Boolean  @default(false)
+  replyToId String?
+
+
+  sender    User     @relation(fields: [senderId], references: [id])
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  replyTo   Message? @relation("ReplyTo", fields: [replyToId], references: [id])
+  replies   Message[] @relation("ReplyTo")
+  
+  replyToStatusId String?
+  replyToStatus   Status? @relation(fields: [replyToStatusId], references: [id])
+
+  @@index([chatId, timestamp(sort: Desc)])
+  @@index([senderId])
+}
+
+model StatusLike {
+  id        String   @id @default(cuid())
+  statusId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  status    Status   @relation(fields: [statusId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([statusId, userId])
+}
+
+model StatusViewer {
+  id        String   @id @default(cuid())
+  statusId  String
+  userId    String
+  viewedAt  DateTime @default(now())
+
+  status    Status   @relation(fields: [statusId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([statusId, userId])
+}

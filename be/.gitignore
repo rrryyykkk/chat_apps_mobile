@@ -1,0 +1,35 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+chat-app-be
+
+# Test results
+*.test
+test_results.txt
+test_results_ansi.txt
+error_test_results.txt
+error_test_results_ansi.txt
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Dependencies
+vendor/
+
+# Prisma
+# Jika Anda ingin men-generate client setiap kali clone, 
+# Anda bisa uncomment baris di bawah ini:
+# prisma/db/
