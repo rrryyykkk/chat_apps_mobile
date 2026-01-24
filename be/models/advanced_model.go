@@ -1,10 +1,26 @@
 package models
 
-// StatusDTO untuk request pembuatan story baru
+import "time"
+
+// StatusDTO untuk request pembuatan & response story
 type StatusDTO struct {
-	MediaUrl string `json:"mediaUrl" binding:"required,url"`
-	Caption  string `json:"caption" binding:"max=200"`
-	Type     string `json:"type" binding:"required,oneof=IMAGE VIDEO"` // IMAGE, VIDEO
+	// Input Fields
+	MediaUrl string `json:"mediaUrl,omitempty"`
+	Content  string `json:"content,omitempty" binding:"max=500"`
+	Color    string `json:"color,omitempty"`
+	Caption  string `json:"caption,omitempty" binding:"max=200"`
+	Type     string `json:"type" binding:"omitempty,oneof=IMAGE VIDEO TEXT DOCUMENT"` // required only for input, handling varies
+
+	// Response Fields
+	ID          string       `json:"id,omitempty"`
+	UserID      string       `json:"userId,omitempty"`
+	User        UserResponse `json:"user,omitempty"`
+	Timestamp   time.Time    `json:"timestamp,omitempty"`
+	ExpiresAt   time.Time    `json:"expiresAt,omitempty"`
+	LikeCount   int          `json:"likeCount"`
+	ViewerCount int          `json:"viewerCount"`
+	IsLiked     bool         `json:"isLiked"`
+	IsViewed    bool         `json:"isViewed"`
 }
 
 // OTPVerifyDTO untuk request verifikasi kode OTP

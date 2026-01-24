@@ -1,5 +1,8 @@
 import 'package:fe/config/app_color.dart';
-import 'package:fe/data/models/chat_model.dart';
+import 'package:fe/data/local/models/local_user.dart';
+import 'package:fe/data/repositories/contact_repository.dart';
+import 'package:fe/injection.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class SelectMembersPage extends StatefulWidget {
@@ -10,46 +13,40 @@ class SelectMembersPage extends StatefulWidget {
 }
 
 class _SelectMembersPageState extends State<SelectMembersPage> {
-  // Dummy Contacts
-  final List<User> _contacts = [
-    User(id: "u2", name: "Ucup", email: "ucup@mail.com", color: Colors.orange),
-    User(id: "u3", name: "Asep", email: "asep@mail.com", color: Colors.purple),
-    User(id: "u4", name: "Budi", email: "budi@mail.com", color: Colors.green),
-    User(id: "u5", name: "Siti", email: "siti@mail.com", color: Colors.pink),
-  ];
-
   final Set<String> _selectedIds = {};
+  final Set<LocalUser> _selectedUsers = {};
 
-  void _toggleSelection(String id) {
+  void _toggleSelection(LocalUser user) {
     setState(() {
-      if (_selectedIds.contains(id)) {
-        _selectedIds.remove(id);
+      if (_selectedIds.contains(user.userId)) {
+        _selectedIds.remove(user.userId);
+        _selectedUsers.removeWhere((u) => u.userId == user.userId);
       } else {
-        _selectedIds.add(id);
+        _selectedIds.add(user.userId);
+        _selectedUsers.add(user);
       }
     });
   }
 
   void _finish() {
-    final selectedUsers =
-        _contacts.where((u) => _selectedIds.contains(u.id)).toList();
-    Navigator.pop(context, selectedUsers);
+    Navigator.pop(context, _selectedUsers.toList());
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Select Members"),
-        backgroundColor: Colors.white,
+        title: Text("select_members".tr()),
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.neutral_900),
+          icon: Icon(Icons.arrow_back_ios_new, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        titleTextStyle: const TextStyle(
-          color: AppColors.neutral_900,
+        titleTextStyle: TextStyle(
+          color: theme.colorScheme.onSurface,
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),
@@ -57,40 +54,51 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.separated(
-              itemCount: _contacts.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final user = _contacts[index];
-                final isSelected = _selectedIds.contains(user.id);
-                return ListTile(
-                  onTap: () => _toggleSelection(user.id),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: user.color?.withValues(alpha: 0.2) ?? AppColors.neutral_100,
-                    child: Text(
-                      user.name[0],
-                       style: TextStyle(
-                            color: user.color ?? AppColors.neutral_900,
-                            fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                       Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  subtitle: Text(user.email),
-                  trailing: Checkbox(
-                    value: isSelected,
-                    activeColor: AppColors.blue_500,
-                    onChanged: (val) => _toggleSelection(user.id),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  ),
+            child: StreamBuilder<List<LocalUser>>(
+              stream: locator<ContactRepository>().listenContacts(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                final contacts = snapshot.data ?? [];
+                
+                if (contacts.isEmpty) {
+                  return Center(child: Text("no_contacts_yet".tr()));
+                }
+
+                return ListView.separated(
+                  itemCount: contacts.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final user = contacts[index];
+                    final isSelected = _selectedIds.contains(user.userId);
+                    return ListTile(
+                      onTap: () => _toggleSelection(user),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.blue_500.withValues(alpha: 0.1),
+                        backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
+                        child: user.avatarUrl == null ? Text(
+                          user.name.isNotEmpty ? user.name[0] : "?",
+                           style: const TextStyle(
+                                color: AppColors.blue_500,
+                                fontWeight: FontWeight.bold),
+                        ) : null,
+                      ),
+                      title: Text(user.alias ?? user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(user.email),
+                      trailing: Checkbox(
+                        value: isSelected,
+                        activeColor: AppColors.blue_500,
+                        onChanged: (val) => _toggleSelection(user),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                    );
+                  },
                 );
-              },
+              }
             ),
           ),
           Container(

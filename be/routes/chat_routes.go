@@ -13,5 +13,6 @@ func ChatRoutes(r *gin.RouterGroup, chatCtrl *controllers.ChatController) {
 		chatGroup.GET("/", chatCtrl.GetUserChats)
 		chatGroup.GET("/:id/messages", chatCtrl.GetMessages)
 		chatGroup.POST("/groups", chatCtrl.CreateGroup)
+		chatGroup.POST("/direct", chatCtrl.CreateDirectChat)
 	}
 }

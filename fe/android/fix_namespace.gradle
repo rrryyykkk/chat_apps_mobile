@@ -1,0 +1,21 @@
+println "Loading fix_namespace.gradle..."
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            try {
+               project.android {
+                   if (namespace == null) {
+                       println "Fixing missing namespace for: ${project.name}"
+                       if (project.name == 'isar_flutter_libs') {
+                           namespace = 'dev.isar.isar_flutter_libs'
+                       } else {
+                           namespace = "com.example.${project.name.replaceAll('[^a-zA-Z0-9_]', '_')}"
+                       }
+                   }
+               }
+            } catch (Exception e) {
+                // Ignore if not an android project or property issues
+            }
+        }
+    }
+}

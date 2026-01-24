@@ -1,4 +1,5 @@
 import 'package:fe/config/app_color.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// [ChatInput] widget untuk area input pesan di bawah (footer).
@@ -43,20 +44,35 @@ class ChatInput extends StatelessWidget {
             
             // Input Field
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).inputDecorationTheme.fillColor,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    hintText: "Type a message...",
-                    hintStyle: Theme.of(context).inputDecorationTheme.hintStyle,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              child: TextFormField(
+                controller: controller,
+                maxLines: 5, // Limit height to 5 lines then scroll
+                minLines: 1,
+                textInputAction: TextInputAction.newline,
+                keyboardType: TextInputType.multiline,
+                enableInteractiveSelection: true,
+                autocorrect: true,
+                enableSuggestions: true,
+                style: const TextStyle(fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: "type_message_hint".tr(),
+                  hintStyle: Theme.of(context).inputDecorationTheme.hintStyle,
+                  filled: true,
+                  isDense: true, // Important for fitting content
+                  fillColor: Theme.of(context).inputDecorationTheme.fillColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
               ),
             ),

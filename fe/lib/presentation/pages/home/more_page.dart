@@ -1,6 +1,8 @@
 import 'package:fe/config/app_color.dart';
 import 'package:fe/core/theme/theme_controller.dart';
 import 'package:fe/presentation/routes/app_routes.dart';
+import 'package:fe/services/local_storage_service.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// [MorePage] berisi pengaturan aplikasi seperti Dark Mode, Notifikasi, 
@@ -17,10 +19,54 @@ class _MorePageState extends State<MorePage> {
   bool _darkMode = false;
   bool _muteNotifications = false;
   bool _hideChatHistory = false;
+  bool _hideStatusUpdates = false;
   
   // Dropdown
   String _selectedLanguage = "English";
-  final List<String> _languages = ["English", "Indonesian", "Spanish", "French"];
+  final List<String> _languages = [
+    "English", 
+    "Indonesian", 
+    "Spanish", 
+    "Chinese", 
+    "Arabic", 
+    "Malay"
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final results = await Future.wait([
+      LocalStorageService.getMuteNotifications(),
+      LocalStorageService.getHideChatHistory(),
+      LocalStorageService.getHideStatusUpdates(),
+    ]);
+
+    final mute = results[0];
+    final hideChat = results[1];
+    final hideStatus = results[2];
+    final darkMode = ThemeController.themeNotifier.value == ThemeMode.dark;
+    
+    // Determine selected language from context
+    String langName = "English";
+    final currentLocale = context.locale.languageCode;
+    if (currentLocale == 'id') langName = "Indonesian";
+    else if (currentLocale == 'es') langName = "Spanish";
+    else if (currentLocale == 'zh') langName = "Chinese";
+    else if (currentLocale == 'ar') langName = "Arabic";
+    else if (currentLocale == 'ms') langName = "Malay";
+
+    setState(() {
+      _muteNotifications = mute;
+      _hideChatHistory = hideChat;
+      _hideStatusUpdates = hideStatus;
+      _darkMode = darkMode;
+      _selectedLanguage = langName;
+    });
+  }
 
   void _handleLogout() {
     // Navigate to Login Page and remove all previous routes
@@ -43,13 +89,13 @@ class _MorePageState extends State<MorePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionHeader("Settings"),
+                  _buildSectionHeader("settings_section".tr()),
                   _buildContainer(
                     children: [
                       _buildSwitchTile(
                         icon: Icons.dark_mode_outlined,
                         color: AppColors.neutral_800,
-                        title: "Dark Mode",
+                        title: "dark_mode".tr(),
                         value: _darkMode,
                         onChanged: (val) {
                           setState(() => _darkMode = val);
@@ -60,29 +106,46 @@ class _MorePageState extends State<MorePage> {
                       _buildSwitchTile(
                         icon: Icons.notifications_none_outlined,
                         color: AppColors.blue_500,
-                        title: "Mute Notifications",
+                        title: "mute_notifications".tr(),
                         value: _muteNotifications,
-                        onChanged: (val) => setState(() => _muteNotifications = val),
+                        onChanged: (val) {
+                          setState(() => _muteNotifications = val);
+                          LocalStorageService.setMuteNotifications(val);
+                        },
                       ),
                       _buildDivider(),
                       _buildSwitchTile(
                         icon: Icons.history,
                         color: AppColors.neutral_600,
-                        title: "Hide Chat History",
+                        title: "hide_chat_history".tr(),
                         value: _hideChatHistory,
-                        onChanged: (val) => setState(() => _hideChatHistory = val),
+                        onChanged: (val) {
+                          setState(() => _hideChatHistory = val);
+                          LocalStorageService.setHideChatHistory(val);
+                        },
+                      ),
+                      _buildDivider(),
+                      _buildSwitchTile(
+                        icon: Icons.visibility_off_outlined,
+                        color: AppColors.blue_500,
+                        title: "hide_status_updates".tr(),
+                        value: _hideStatusUpdates,
+                        onChanged: (val) {
+                          setState(() => _hideStatusUpdates = val);
+                          LocalStorageService.setHideStatusUpdates(val);
+                        },
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 24),
-                  _buildSectionHeader("Account & Security"),
+                  _buildSectionHeader("account_security_section".tr()),
                   _buildContainer(
                     children: [
                       _buildNavigationTile(
                         icon: Icons.security,
                         color: AppColors.green_500,
-                        title: "Security",
+                        title: "security".tr(),
                         onTap: () => Navigator.pushNamed(context, AppRoutes.security),
                       ),
                       _buildDivider(),
@@ -91,27 +154,27 @@ class _MorePageState extends State<MorePage> {
                   ),
 
                   const SizedBox(height: 24),
-                  _buildSectionHeader("Support"),
+                  _buildSectionHeader("support_section".tr()),
                   _buildContainer(
                     children: [
                       _buildNavigationTile(
                         icon: Icons.help_outline,
                         color: AppColors.yellow_600,
-                        title: "Help & Support",
+                        title: "help_support".tr(),
                         onTap: () => Navigator.pushNamed(context, AppRoutes.help),
                       ),
                       _buildDivider(),
                       _buildNavigationTile(
                         icon: Icons.description_outlined,
                         color: AppColors.neutral_500,
-                        title: "Terms & Policies",
+                        title: "terms_policies".tr(),
                         onTap: () => Navigator.pushNamed(context, AppRoutes.terms),
                       ),
                       _buildDivider(),
                       _buildNavigationTile(
                         icon: Icons.info_outline,
                         color: AppColors.blue_400,
-                        title: "About",
+                        title: "about".tr(),
                         onTap: () => Navigator.pushNamed(context, AppRoutes.about),
                       ),
                     ],
@@ -130,9 +193,9 @@ class _MorePageState extends State<MorePage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        "Log Out",
-                        style: TextStyle(
+                      child: Text(
+                        "logout_btn".tr(),
+                        style: const TextStyle(
                           fontSize: 16, 
                           fontWeight: FontWeight.w600,
                         ),
@@ -261,7 +324,7 @@ class _MorePageState extends State<MorePage> {
         child: const Icon(Icons.language, color: AppColors.blue_600, size: 20),
       ),
       title: Text(
-        "Language",
+        "language".tr(),
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -282,6 +345,19 @@ class _MorePageState extends State<MorePage> {
               setState(() {
                 _selectedLanguage = newValue;
               });
+              if (newValue == "English") {
+                context.setLocale(const Locale('en'));
+              } else if (newValue == "Indonesian") {
+                context.setLocale(const Locale('id'));
+              } else if (newValue == "Spanish") {
+                context.setLocale(const Locale('es'));
+              } else if (newValue == "Chinese") {
+                context.setLocale(const Locale('zh'));
+              } else if (newValue == "Arabic") {
+                context.setLocale(const Locale('ar'));
+              } else if (newValue == "Malay") {
+                context.setLocale(const Locale('ms'));
+              }
             }
           },
           items: _languages.map<DropdownMenuItem<String>>((String value) {

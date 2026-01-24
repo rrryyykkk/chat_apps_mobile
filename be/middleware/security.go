@@ -90,8 +90,8 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Simpan userID dan userName ke context supaya bisa dipakai di controller
-		c.Set("userID", claims["sub"])
-		c.Set("userName", claims["name"])
+		c.Set("userID", fmt.Sprintf("%v", claims["sub"]))
+		c.Set("userName", fmt.Sprintf("%v", claims["name"]))
 		c.Next()
 	}
 }

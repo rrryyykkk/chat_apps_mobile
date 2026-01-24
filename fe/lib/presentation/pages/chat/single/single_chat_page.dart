@@ -3,6 +3,10 @@ import 'package:fe/data/models/chat_model.dart';
 import 'package:fe/presentation/widgets/chat/chat_bubble.dart';
 import 'package:fe/presentation/widgets/chat/chat_header.dart';
 import 'package:fe/presentation/widgets/chat/chat_input.dart';
+import 'package:fe/core/network/service_locator.dart';
+import 'package:fe/services/local_storage_service.dart';
+import 'dart:convert';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -25,50 +29,109 @@ class _SingleChatPageState extends State<SingleChatPage> {
   Message? _replyMessage;
   Message? _editingMessage;
 
-  // Pesan Dummy
-  final List<Message> _messages = [
-    Message(
-      id: "1",
-      senderId: "me",
-      content: "Halo mas",
-      timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
-      status: MessageStatus.read,
-    ),
-    Message(
-      id: "2",
-      senderId: "other",
-      content: "Yoi mas, kenapa?",
-      timestamp: DateTime.now().subtract(const Duration(minutes: 9)),
-      status: MessageStatus.read,
-    ),
-  ];
+  List<Message> _messages = [];
+  bool _isLoadingMessages = true;
+
+  String? _myId;
 
   @override
   void initState() {
     super.initState();
-    // Simulasi tandai pesan terbaca saat membuka halaman
-    _markAsRead();
+    _loadUserAndInit();
+    _fetchMessages();
   }
 
-  void _markAsRead() {
-    // Simulasi delay
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      setState(() {
-        for (var msg in _messages) {
-          if (msg.senderId == "other" && msg.status != MessageStatus.read) {
-             // Di aplikasi nyata, update ke backend disini
+  Future<void> _loadUserAndInit() async {
+    final userId = await LocalStorageService.getUserId();
+    final token = await LocalStorageService.getToken();
+    
+    if (userId != null && token != null) {
+      _myId = userId;
+      ServiceLocator.webSocketService.connect(userId, token);
+    }
+    _initWebSocket();
+  }
+
+  Future<void> _fetchMessages() async {
+    setState(() => _isLoadingMessages = true);
+    try {
+      final response = await ServiceLocator.chatDataSource.getMessages(widget.chat.id);
+      if (response.statusCode == 200) {
+        final List data = response.data['data'];
+        setState(() {
+          _messages = data.map((e) => Message.fromJson(e)).toList();
+          _isLoadingMessages = false;
+        });
+        _markAsRead();
+      }
+    } catch (e) {
+      setState(() => _isLoadingMessages = false);
+      Fluttertoast.showToast(
+        msg: "Failed to load messages",
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+    }
+  }
+
+  void _initWebSocket() {
+    if (_myId == null) return;
+    
+    ServiceLocator.webSocketService.messages.listen((event) {
+      final msgData = jsonDecode(event);
+      
+      if (msgData['type'] == 'chat' && msgData['chatId'] == widget.chat.id) {
+        final newMessage = Message.fromJson(msgData['data']);
+        
+        setState(() {
+          // Find temporary message by matching content and sender
+          final index = _messages.indexWhere((m) => 
+            m.senderId == newMessage.senderId && 
+            m.content == newMessage.content && 
+            m.status == MessageStatus.sending
+          );
+          
+          if (index != -1) {
+            // Replace temporary message with real one from server
+            _messages[index] = newMessage;
+          } else if (newMessage.senderId != _myId) {
+            // Message from other user, add it to bottom (index 0)
+            _messages.insert(0, newMessage);
           }
-        }
-      });
+        });
+      } else if (msgData['type'] == 'status_update') {
+        final updatedMsg = Message.fromJson(msgData['data']);
+        setState(() {
+          final index = _messages.indexWhere((m) => m.id == updatedMsg.id);
+          if (index != -1) {
+            _messages[index].status = updatedMsg.status;
+          }
+        });
+      }
     });
   }
 
-  void _sendMessage() {
-    if (_msgController.text.trim().isEmpty) return;
+  @override
+  void dispose() {
+    ServiceLocator.webSocketService.close();
+    super.dispose();
+  }
+
+  void _markAsRead() {
+    if (_myId == null) return;
+    // Kirim laporan baca jika ada pesan yang belum dibaca dari orang lain
+    for (var msg in _messages) {
+      if (msg.senderId != _myId && msg.status != MessageStatus.read) {
+         ServiceLocator.webSocketService.sendMessage("read_receipt", widget.chat.id, "", data: msg.id);
+      }
+    }
+  }
+
+  void _sendMessage() async {
+    if (_msgController.text.trim().isEmpty || _myId == null) return;
 
     if (_editingMessage != null) {
-      // Logika Edit
+      // Logika edit melalui WS atau REST
       setState(() {
         _editingMessage!.content = _msgController.text;
         _editingMessage = null;
@@ -77,37 +140,32 @@ class _SingleChatPageState extends State<SingleChatPage> {
       return;
     }
 
+    final content = _msgController.text;
+
+    // Tambahkan secara lokal untuk UI optimis
     final newMessage = Message(
-      id: DateTime.now().toString(),
-      senderId: "me",
-      content: _msgController.text,
+      id: "temp_${DateTime.now().millisecondsSinceEpoch}",
+      senderId: _myId!,
+      content: content,
       timestamp: DateTime.now(),
-      status: MessageStatus.sending, // Status awal sending
+      status: MessageStatus.sending,
       replyToId: _replyMessage?.id,
     );
 
     setState(() {
-      _messages.add(newMessage);
+      // Insert di index 0 agar muncul paling bawah (karena ListView reverse: true)
+      _messages.insert(0, newMessage);
       _msgController.clear();
       _replyMessage = null;
     });
 
-    // Simulasi pembaruan status
-    _simulateMessageStatus(newMessage);
-  }
-
-  void _simulateMessageStatus(Message msg) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
-    setState(() => msg.status = MessageStatus.sent);
-
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-    setState(() => msg.status = MessageStatus.delivered);
-
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-    setState(() => msg.status = MessageStatus.read);
+    // Kirim via WebSocket
+    ServiceLocator.webSocketService.sendMessage(
+      "chat", 
+      widget.chat.id, 
+      content,
+      data: _replyMessage?.id, // Kirim ID pesan yang dibalas sebagai data tambahan
+    );
   }
 
   void _showContextMenu(Message msg) {
@@ -124,7 +182,7 @@ class _SingleChatPageState extends State<SingleChatPage> {
             if (!msg.isDeleted) ...[
               ListTile(
                 leading: const Icon(Icons.reply),
-                title: const Text("Balas"),
+                title: const Text("Reply"),
                 onTap: () {
                   Navigator.pop(context);
                   setState(() => _replyMessage = msg);
@@ -132,11 +190,11 @@ class _SingleChatPageState extends State<SingleChatPage> {
               ),
               ListTile(
                 leading: const Icon(Icons.copy),
-                title: const Text("Salin"),
+                title: const Text("Copy"),
                 onTap: () {
                   Navigator.pop(context);
                   Clipboard.setData(ClipboardData(text: msg.content));
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Disalin!")));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Copied!")));
                 },
               ),
               if (isMe) ...[
@@ -145,10 +203,10 @@ class _SingleChatPageState extends State<SingleChatPage> {
                   title: const Text("Edit"),
                   onTap: () {
                     Navigator.pop(context);
-                    // Cek batas waktu < 15 menit (misal)
+                    // Check 15 mins limit
                     final diff = DateTime.now().difference(msg.timestamp).inMinutes;
                     if (diff > 15) {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tidak bisa edit pesan lebih dari 15 menit")));
+                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cannot edit messages older than 15 minutes")));
                        return;
                     }
                     setState(() {
@@ -159,7 +217,7 @@ class _SingleChatPageState extends State<SingleChatPage> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text("Hapus", style: TextStyle(color: Colors.red)),
+                  title: const Text("Delete", style: TextStyle(color: Colors.red)),
                   onTap: () {
                     Navigator.pop(context);
                     _confirmDelete(msg);
@@ -188,21 +246,13 @@ class _SingleChatPageState extends State<SingleChatPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Hapus Pesan?"),
-        content: const Text("Apakah Anda yakin ingin menghapus pesan ini?"),
+        title: const Text("Delete Message?"),
+        content: const Text("Are you sure you want to delete this message?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Batal")),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
           TextButton(
             onPressed: () {
-              // Soft delete (Hapus secara logika)
               setState(() {
-                 // Karena msg sebenarnya reference, ubah propertynya lgsg akan update UI
-                 // Tapi lebih baik cari index kalau di real app state management
-                 // Disini msg adalah reference dr list _messages
-                 // Namun Message immutable kecuali yg kita ubah tadi.
-                 // Kita tadi ubah 'content' dan 'status' jadi mutable, tp 'isDeleted' masih final.
-                 // Perlu ubah isDeleted jadi mutable di model dl atau replace object.
-                 // Karena di model tadi isDeleted final, kita replace objectnya.
                  final index = _messages.indexWhere((m) => m.id == msg.id);
                  if (index != -1) {
                    _messages[index] = Message(
@@ -218,7 +268,7 @@ class _SingleChatPageState extends State<SingleChatPage> {
               });
               Navigator.pop(ctx);
             }, 
-            child: const Text("Hapus", style: TextStyle(color: Colors.red))
+            child: const Text("Delete", style: TextStyle(color: Colors.red))
           ),
         ],
       ),
@@ -303,21 +353,29 @@ class _SingleChatPageState extends State<SingleChatPage> {
           ),
 
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                return GestureDetector(
-                  onLongPress: () => _showContextMenu(msg),
-                  child: ChatBubble(
-                    message: msg,
-                    isSender: msg.senderId == "me",
-                    isGroup: false, 
+            child: _isLoadingMessages 
+              ? const Center(child: CircularProgressIndicator())
+              : _messages.isEmpty 
+                ? const Center(child: Text("No messages yet. Say hi!"))
+                : ListView.builder(
+                    reverse: true, // List dibalik: Index 0 ada di bawah
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      // Backend mengirim DESC (index 0 = terbaru).
+                      // Karena reverse: true, item index 0 dirender di bawah.
+                      // Jadi kita TIDAK perlu membalik index lagi.
+                      final msg = _messages[index];
+                      return GestureDetector(
+                        onLongPress: () => _showContextMenu(msg),
+                        child: ChatBubble(
+                          message: msg,
+                          isSender: msg.senderId == _myId,
+                          isGroup: false, 
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
 
           // Reply Preview

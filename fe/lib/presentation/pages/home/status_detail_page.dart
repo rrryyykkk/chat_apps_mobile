@@ -1,15 +1,14 @@
 import 'package:fe/config/app_color.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class StatusDetailPage extends StatefulWidget {
-  final String userName;
-  final Color userColor;
+  final Map<String, dynamic> statusData;
   final bool isMyStatus;
 
   const StatusDetailPage({
     super.key,
-    required this.userName,
-    required this.userColor,
+    required this.statusData,
     this.isMyStatus = false,
   });
 
@@ -21,26 +20,17 @@ class _StatusDetailPageState extends State<StatusDetailPage> with SingleTickerPr
   late AnimationController _controller;
   bool _isLiked = false;
 
-  // Dummy list penonton untuk "My Status"
+  // Dummy viewers data - ideally fetched from backend or passed via statusData
   final List<Map<String, dynamic>> _viewers = [
-    {"name": "Jane Cooper", "time": DateTime.now().subtract(const Duration(minutes: 5)), "liked": true},
-    {"name": "Floyd Miles", "time": DateTime.now().subtract(const Duration(minutes: 15)), "liked": false},
-    {"name": "Ronald Richards", "time": DateTime.now().subtract(const Duration(hours: 2)), "liked": true},
-    {"name": "Esther Howard", "time": DateTime.now().subtract(const Duration(minutes: 45)), "liked": false},
+    {'name': 'Alex', 'time': DateTime.now().subtract(const Duration(minutes: 5)), 'liked': true},
+    {'name': 'Budi', 'time': DateTime.now().subtract(const Duration(minutes: 15)), 'liked': false},
+    {'name': 'Charlie', 'time': DateTime.now().subtract(const Duration(minutes: 30)), 'liked': false},
   ];
 
   @override
   void initState() {
     super.initState();
     
-    // Urutkan penonton: Likes dulu, baru waktu tercepat
-    _viewers.sort((a, b) {
-      if (a['liked'] != b['liked']) {
-        return a['liked'] ? -1 : 1;
-      }
-      return (a['time'] as DateTime).compareTo(b['time'] as DateTime);
-    });
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 5),
@@ -59,14 +49,17 @@ class _StatusDetailPageState extends State<StatusDetailPage> with SingleTickerPr
     _controller.forward();
   }
 
-  String _getTimeString(DateTime time) {
-    final now = DateTime.now();
-    final diff = now.difference(time);
-    if (diff.inHours < 1) {
-      return "${diff.inMinutes} minutes ago";
-    } else {
-      return "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+  Color _parseColor(String? colorHex) {
+    if (colorHex == null || !colorHex.startsWith('#')) return AppColors.blue_500;
+    try {
+      return Color(int.parse(colorHex.replaceFirst('#', '0xff')));
+    } catch (e) {
+      return AppColors.blue_500;
     }
+  }
+
+  String _getTimeString(DateTime time) {
+    return "${time.hour}:${time.minute.toString().padLeft(2, '0')}";
   }
 
   @override
@@ -77,108 +70,146 @@ class _StatusDetailPageState extends State<StatusDetailPage> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final status = widget.statusData;
+    final user = status['user'] ?? {};
+    final type = status['type'] ?? 'IMAGE';
+    final mediaUrl = status['mediaUrl'];
+    final content = status['content'];
+    final bgColorHex = status['backgroundColor'];
+    final caption = status['caption'];
+    
+    final theme = Theme.of(context);
+    final statusColor = _parseColor(bgColorHex);
+
     return GestureDetector(
       onVerticalDragUpdate: (details) {
-        // Swipe down to close
-        if (details.delta.dy > 10) {
-          Navigator.pop(context);
-        }
-        // Swipe up to show viewers (only for My Status)
-        if (details.delta.dy < -10 && widget.isMyStatus) {
-          _controller.stop();
-          _showViewersSheet();
-        }
+        if (details.delta.dy > 10) Navigator.pop(context);
       },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
-        children: [
-          // Status Content (Dummy Image representation)
-          Center(
-            child: Container(
-              width: double.infinity,
-              height: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    widget.userColor,
-                    widget.userColor.withValues(alpha: 0.5),
-                    Colors.black,
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.image, size: 100, color: Colors.white.withValues(alpha: 0.3)),
-                    const SizedBox(height: 20),
-                    Text(
-                      "Status Content for ${widget.userName}",
-                      style: const TextStyle(color: Colors.white, fontSize: 18),
+          children: [
+            // Status Content
+            Positioned.fill(
+              child: type == 'TEXT'
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    color: statusColor,
+                    alignment: Alignment.center,
+                    child: Text(
+                      content ?? "",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ],
+                  )
+                : mediaUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: mediaUrl,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                      errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
+                    )
+                  : Container(color: Colors.grey[900]),
+            ),
+
+            // Top Gradient for Header Visibility
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 120,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black54, Colors.transparent],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Progress Bar
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            // Progress Bar & Header
+            SafeArea(
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: LinearProgressIndicator(
-                          value: _controller.value,
-                          backgroundColor: Colors.white24,
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                          minHeight: 3,
-                        ),
-                      ),
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: LinearProgressIndicator(
+                      value: _controller.value,
+                      backgroundColor: Colors.white24,
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      minHeight: 3,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  // Header Info
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      ),
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: widget.userColor.withValues(alpha: 0.3),
-                        child: Text(
-                          widget.userName[0],
-                          style: TextStyle(color: widget.userColor, fontWeight: FontWeight.bold),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.userName,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                          const Text(
-                            "Just now",
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.white24,
+                          backgroundImage: user['avatarUrl'] != null 
+                            ? NetworkImage(user['avatarUrl']) as ImageProvider
+                            : null,
+                          child: user['avatarUrl'] == null 
+                            ? Text(
+                                (user['name'] ?? "?")[0],
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              )
+                            : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user['name'] ?? "Unknown",
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              status['createdAt'] ?? "Just now",
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
+
+            // Caption (Only for Media Status)
+            if (type != 'TEXT' && caption != null && caption.toString().isNotEmpty)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 40, 20, 100),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black87, Colors.transparent],
+                    ),
+                  ),
+                  child: Text(
+                    caption,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+
 
           // Bottom Actions
           Align(
@@ -292,10 +323,13 @@ class _StatusDetailPageState extends State<StatusDetailPage> with SingleTickerPr
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (ctx, i) {
                 final v = _viewers[i];
+                final status = widget.statusData;
+                final statusColor = _parseColor(status['backgroundColor']);
+                
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: widget.userColor.withValues(alpha: 0.1),
-                    child: Text(v['name'][0], style: TextStyle(color: widget.userColor)),
+                    backgroundColor: statusColor.withValues(alpha: 0.1),
+                    child: Text(v['name'][0], style: TextStyle(color: statusColor)),
                   ),
                   title: Text(v['name'], style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
                   subtitle: Text(_getTimeString(v['time']), style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),

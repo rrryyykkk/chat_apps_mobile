@@ -7,6 +7,7 @@ import 'package:fe/presentation/pages/auth/verification_page.dart';
 import 'package:fe/presentation/pages/chat/group/group_chat_page.dart';
 import 'package:fe/presentation/pages/chat/single/single_chat_page.dart';
 import 'package:fe/presentation/pages/contact/add_friend_page.dart';
+import 'package:fe/presentation/pages/contact/contacts_page.dart';
 import 'package:fe/presentation/pages/group/create_group_page.dart';
 import 'package:fe/presentation/pages/group/select_members_page.dart';
 import 'package:fe/presentation/pages/home/dashboard_page.dart';
@@ -37,6 +38,7 @@ class AppRoutes {
   static const singleChat = '/singleChat';
   static const groupChat = '/groupChat';
   static const addFriend = '/addFriend';
+  static const contacts = '/contacts';
   static const createGroup = '/createGroup';
   static const selectMembers = '/selectMembers';
   static const chatInfo = '/chatInfo';
@@ -86,6 +88,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => GroupChatPage(chat: chat));
       case addFriend:
         return MaterialPageRoute(builder: (_) => const AddFriendPage());
+      case contacts:
+        return MaterialPageRoute(builder: (_) => const ContactsPage());
       case createGroup:
         return MaterialPageRoute(builder: (_) => const CreateGroupPage());
       case selectMembers:
@@ -107,8 +111,7 @@ class AppRoutes {
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
           builder: (_) => StatusDetailPage(
-            userName: args['userName'] as String,
-            userColor: args['userColor'] as Color,
+            statusData: args['statusData'] as Map<String, dynamic>,
             isMyStatus: args['isMyStatus'] as bool? ?? false,
           ),
         );

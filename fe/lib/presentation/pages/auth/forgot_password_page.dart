@@ -1,10 +1,12 @@
 import 'package:fe/config/app_color.dart';
 import 'package:fe/core/widgets/primary_button.dart';
+import 'package:fe/core/widgets/custom_text_field.dart';
 import 'package:fe/presentation/routes/app_routes.dart';
+import 'package:fe/core/network/service_locator.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
-/// [ForgotPasswordPage] adalah halaman pertama untuk proses pemulihan kata sandi.
-/// Pengguna memasukkan email mereka untuk menerima kode verifikasi (OTP).
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -13,46 +15,78 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  // Kontroller teks untuk input email pemulihan
   final _emailController = TextEditingController();
   bool _isLoading = false;
 
   void _sendVerificationCode() async {
-
+    if (_emailController.text.isEmpty) {
+      Fluttertoast.showToast(
+        msg: "fill_email_error".tr(),
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+    
+    try {
+      final response = await ServiceLocator.authDataSource.apiClient.post(
+        '/auth/forgot-password', 
+        data: {'email': _emailController.text},
+      );
 
-    // Navigate to Verification Page with argument indicating reset flow
-    // We will verify the code then go to ResetPasswordPage
-    Navigator.pushNamed(
-      context, 
-      AppRoutes.verification, 
-      arguments: {'nextRoute': AppRoutes.resetPassword, 'email': _emailController.text, 'isResetParams': true},
-    );
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (response.statusCode == 200) {
+        Fluttertoast.showToast(
+          msg: "otp_sent_msg".tr(),
+          backgroundColor: AppColors.green_500,
+          gravity: ToastGravity.TOP,
+        );
+        
+        Navigator.pushNamed(
+          context, 
+          AppRoutes.verification, 
+          arguments: {
+            'nextRoute': AppRoutes.resetPassword, 
+            'email': _emailController.text, 
+            'isResetParams': true
+          },
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      Fluttertoast.showToast(
+        msg: "otp_send_error".tr(),
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Forgot Password"),
+        title: Text("forgot_password_title".tr()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Reset via Email",
+            Text(
+              "reset_via_email".tr(),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -60,23 +94,21 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "Enter the email associated with your account and we'll send an email with instructions to reset your password.",
-              style: TextStyle(color: AppColors.neutral_500),
+            Text(
+              "forgot_password_instruction".tr(),
+              style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 32),
-            TextField(
+            CustomTextField(
               controller: _emailController,
+              label: "email".tr(),
+              hint: "email_hint".tr(),
               keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: "Email Address",
-                prefixIcon: const Icon(Icons.email_outlined, color: AppColors.blue_500),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+              prefixIcon: const Icon(Icons.email_outlined, color: AppColors.blue_500),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 48),
             PrimaryButton(
-              text: "Send Instructions",
+              text: "send_instructions_btn".tr(),
               isLoading: _isLoading,
               onPressed: _sendVerificationCode,
             ),

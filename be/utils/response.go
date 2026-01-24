@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,9 +42,15 @@ func ErrorResponse(ctx *gin.Context, code int, message string, err error) {
 		// Log error lengkap di server (Internal)
 		log.Printf("[API ERROR] %s: %v", message, err)
 		
-		// Jika mode Release, sembunyikan detail teknis dari client
-		if os.Getenv("GIN_MODE") == "release" {
-			errStr = "Terjadi kesalahan internal"
+		// Jika mode Release, sembunyikan detail teknis
+		// ATAU jika pesan error terlihat mengandung rahasia database/ORM
+		lowErr := strings.ToLower(err.Error())
+		if os.Getenv("GIN_MODE") == "release" || 
+		   strings.Contains(lowErr, "prisma") || 
+		   strings.Contains(lowErr, "connector") || 
+		   strings.Contains(lowErr, "record") || 
+		   strings.Contains(lowErr, "relation") {
+			errStr = "Terjadi kesalahan server"
 		} else {
 			errStr = err.Error()
 		}

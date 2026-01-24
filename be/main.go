@@ -41,12 +41,13 @@ func main() {
 	chatRepo := repositories.NewChatRepository(config.PkgClient)
 	statusRepo := repositories.NewStatusRepository(config.PkgClient)
 	searchRepo := repositories.NewSearchRepository(config.PkgClient)
+	contactRepo := repositories.NewContactRepository(config.PkgClient)
 
 	// 5. Controllers
 	wsCtrl := controllers.NewWSController(chatRepo)
 	authCtrl := controllers.NewAuthController(userRepo)
-	chatCtrl := controllers.NewChatController(chatRepo, wsCtrl)
-	statusCtrl := controllers.NewStatusController(statusRepo, wsCtrl)
+	chatCtrl := controllers.NewChatController(chatRepo, contactRepo, wsCtrl)
+	statusCtrl := controllers.NewStatusController(statusRepo, chatRepo, wsCtrl)
 	mediaCtrl := controllers.NewMediaController()
 	searchCtrl := controllers.NewSearchController(searchRepo)
 
@@ -66,6 +67,9 @@ func main() {
 			
 			// Global Search Route
 			protected.GET("/search", searchCtrl.HandleSearch)
+			
+			// Contact Routes (New)
+			routes.RegisterContactRoutes(protected, contactRepo)
 		}
 	}
 
@@ -74,7 +78,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "9000"
 	}
 
 	log.Printf("==== Backend Chat App Aman & Optimal Berjalan di Port %s ====", port)

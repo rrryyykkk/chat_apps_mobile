@@ -15,6 +15,16 @@ class User {
     this.avatarUrl,
     this.color,
   });
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      avatarUrl: json['avatarUrl'],
+      color: json['color'] != null ? Color(int.parse(json['color'].toString().replaceFirst('#', '0xff'))) : null,
+    );
+  }
 }
 
 /// [MessageType] enum untuk membedakan tipe pesan.
@@ -31,7 +41,7 @@ class Message {
   final DateTime timestamp;
   final MessageType type;
   MessageStatus status; // Mutable untuk simulasi update status
-  final bool isDeleted;
+  bool isDeleted; // Mutable for delete action
   final String? replyToId; // ID pesan yang dibalas
 
   Message({
@@ -44,6 +54,37 @@ class Message {
     this.isDeleted = false,
     this.replyToId,
   });
+
+  factory Message.fromJson(Map<String, dynamic> json) {
+    return Message(
+      id: json['id'],
+      senderId: json['senderId'],
+      content: json['content'],
+      timestamp: DateTime.parse(json['timestamp']),
+      type: _parseMessageType(json['type']),
+      status: _parseMessageStatus(json['status']),
+      isDeleted: json['isDeleted'] ?? false,
+      replyToId: json['replyToId'],
+    );
+  }
+
+  static MessageType _parseMessageType(String? type) {
+    switch (type) {
+      case 'IMAGE': return MessageType.image;
+      case 'INFO': return MessageType.info;
+      default: return MessageType.text;
+    }
+  }
+
+  static MessageStatus _parseMessageStatus(String? status) {
+    switch (status) {
+      case 'SENDING': return MessageStatus.sending;
+      case 'SENT': return MessageStatus.sent;
+      case 'DELIVERED': return MessageStatus.delivered;
+      case 'READ': return MessageStatus.read;
+      default: return MessageStatus.sent;
+    }
+  }
 }
 
 /// [Chat] model merepresentasikan room chat (bisa single atau group).
@@ -65,4 +106,17 @@ class Chat {
     this.lastMessage,
     this.unreadCount = 0,
   });
+
+  factory Chat.fromJson(Map<String, dynamic> json) {
+    return Chat(
+      id: json['id'],
+      name: json['name'] ?? "Unknown",
+      icon: json['icon'],
+      isGroup: json['isGroup'] ?? false,
+      unreadCount: json['unreadCount'] ?? 0,
+      lastMessage: json['messages'] != null && (json['messages'] as List).isNotEmpty 
+          ? Message.fromJson(json['messages'][0]) 
+          : null,
+    );
+  }
 }

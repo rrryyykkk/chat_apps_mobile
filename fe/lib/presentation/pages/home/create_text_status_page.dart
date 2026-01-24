@@ -1,4 +1,7 @@
 import 'package:fe/config/app_color.dart';
+import 'package:fe/data/repositories/status_repository.dart';
+import 'package:fe/injection.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class CreateTextStatusPage extends StatefulWidget {
@@ -11,6 +14,8 @@ class CreateTextStatusPage extends StatefulWidget {
 class _CreateTextStatusPageState extends State<CreateTextStatusPage> {
   final _controller = TextEditingController();
   int _colorIndex = 0;
+  bool _isPosting = false;
+
   final List<Color> _backgroundColors = [
     Colors.purple,
     Colors.blue,
@@ -21,6 +26,30 @@ class _CreateTextStatusPageState extends State<CreateTextStatusPage> {
     Colors.indigo,
   ];
 
+  void _postStatus() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isPosting = true);
+    
+    final hexColor = '#${_backgroundColors[_colorIndex].value.toRadixString(16).substring(2)}';
+    final success = await locator<StatusRepository>().createTextStatus(text, hexColor);
+    
+    if (mounted) {
+      setState(() => _isPosting = false);
+      if (success) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("status_posted_success".tr())),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("error_uploading".tr()), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -30,20 +59,27 @@ class _CreateTextStatusPageState extends State<CreateTextStatusPage> {
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: TextField(
-                controller: _controller,
-                autofocus: true,
-                maxLines: null,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(30),
                 ),
-                decoration: const InputDecoration(
-                  hintText: "Type a status",
-                  hintStyle: TextStyle(color: Colors.white54),
-                  border: InputBorder.none,
+                child: TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  maxLines: null,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: "type_status_hint".tr(),
+                    hintStyle: const TextStyle(color: Colors.white60),
+                    border: InputBorder.none,
+                  ),
                 ),
               ),
             ),
@@ -68,30 +104,21 @@ class _CreateTextStatusPageState extends State<CreateTextStatusPage> {
                         },
                         icon: const Icon(Icons.palette, color: Colors.white, size: 28),
                       ),
-                      IconButton(
-                        onPressed: () {}, // Text style toggle
-                        icon: const Icon(Icons.text_fields, color: Colors.white, size: 28),
-                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ),
+          if (_isPosting)
+            const Center(child: CircularProgressIndicator(color: Colors.white)),
           Align(
             alignment: Alignment.bottomRight,
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: FloatingActionButton(
-                  onPressed: () {
-                    if (_controller.text.trim().isNotEmpty) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Status posted!")),
-                      );
-                    }
-                  },
+                  onPressed: _isPosting ? null : _postStatus,
                   backgroundColor: AppColors.blue_500,
                   child: const Icon(Icons.send, color: Colors.white),
                 ),

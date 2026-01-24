@@ -25,7 +25,25 @@ model User {
   statusLikes  StatusLike[]
   statusViews  StatusViewer[]
 
+  // Relations for Contacts
+  contacts     Contact[] @relation("MyContacts")
+  savedBy      Contact[] @relation("SavedBy")
+
   @@index([email])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  userId    String   // User who owns this contact
+  contactId String   // The user being saved as a contact
+  alias     String?  // Local nickname for the contact
+  createdAt DateTime @default(now())
+
+  user      User     @relation("MyContacts", fields: [userId], references: [id], onDelete: Cascade)
+  contactUser User   @relation("SavedBy", fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contactId]) // Prevent duplicate contacts
+  @@index([userId])
 }
 
 model Chat {
@@ -57,12 +75,15 @@ enum MediaType {
   IMAGE
   VIDEO
   DOCUMENT
+  TEXT
 }
 
 model Status {
   id        String    @id @default(cuid())
   userId    String
-  mediaUrl  String
+  mediaUrl  String?
+  content   String?
+  backgroundColor String?
   caption   String?
   type      MediaType @default(IMAGE)
   createdAt DateTime  @default(now())

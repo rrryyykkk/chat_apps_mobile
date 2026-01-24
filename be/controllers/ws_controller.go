@@ -6,11 +6,14 @@ import (
 	"chat-app-be/utils"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 )
 
@@ -52,14 +55,36 @@ func NewWSController(chatRepo *repositories.ChatRepository) *WSController {
 	}
 }
 
-// HandleWS adalah endpoint utama untuk upgrade koneksi ke WebSocket.
+// HandleWS adalah endpoint utama untuk upgrade koneksi ke WebSocket dengan validasi token.
 func (ctrl *WSController) HandleWS(ctx *gin.Context) {
 	userId := ctx.Query("userId")
-	if userId == "" {
-		utils.BadRequest(ctx, "userId wajib ada untuk koneksi WebSocket", nil)
+	tokenString := ctx.Query("token")
+
+	if userId == "" || tokenString == "" {
+		utils.BadRequest(ctx, "userId dan token wajib ada untuk koneksi WebSocket", nil)
 		return
 	}
 
+	// 1. Validasi Token JWT secara manual (karena WebSocket handshake sering di luar middleware standar)
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("metode signing tidak valid")
+		}
+		return []byte(os.Getenv("JWT_SECRET")), nil
+	})
+
+	if err != nil || !token.Valid {
+		utils.Unauthorized(ctx, "Token tidak valid")
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || claims["sub"] != userId {
+		utils.Unauthorized(ctx, "Token tidak sesuai dengan UserID")
+		return
+	}
+
+	// 2. Upgrade ke WebSocket
 	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
 		log.Println("Gagal upgrade ke WS:", err)
@@ -76,7 +101,7 @@ func (ctrl *WSController) HandleWS(ctx *gin.Context) {
 	ctrl.Clients[userId] = client
 	ctrl.mu.Unlock()
 
-	log.Printf("[WS] User %s terhubung", userId)
+	log.Printf("[WS] User %s terhubung dengan aman", userId)
 
 	// Jalankan goroutine untuk baca dan tulis pesan secara konkuren
 	go client.writePump()
@@ -175,7 +200,7 @@ func (ctrl *WSController) handleChatMessage(senderID string, msg WSMessage) {
 }
 
 // handleReadReceipt memproses status pesan yang telah dibaca oleh penerima.
-func (ctrl *WSController) handleReadReceipt(readerID string, msg WSMessage) {
+func (ctrl *WSController) handleReadReceipt(_ string, msg WSMessage) {
 	messageID, ok := msg.Data.(string)
 	if !ok {
 		log.Println("[WS] ID pesan tidak valid dalam read_receipt")

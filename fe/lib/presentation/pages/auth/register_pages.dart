@@ -5,8 +5,14 @@ import 'package:fe/config/app_color.dart';
 import 'package:fe/presentation/routes/app_routes.dart';
 import 'package:fe/core/widgets/primary_button.dart';
 import 'package:fe/presentation/pages/auth/widgets/register_steps.dart'; // New Import
+import 'package:fe/core/network/service_locator.dart';
+import 'package:fe/services/local_storage_service.dart';
+import 'package:fe/presentation/pages/auth/verification_page.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart';
 
 /// [RegisterPages] adalah halaman pendaftaran pengguna baru yang terdiri dari beberapa langkah (Multi-step).
 /// Langkah 1: Input Email.
@@ -47,14 +53,14 @@ class _RegisterPagesState extends State<RegisterPages> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 16),
-          const Text(
-            "Pilih Foto Profil",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          Text(
+            "pick_profile_picture".tr(),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           const SizedBox(height: 16),
           ListTile(
             leading: const Icon(Icons.camera_alt, color: AppColors.blue_500),
-            title: const Text("Kamera"),
+            title: Text("camera".tr()),
             onTap: () async {
               Navigator.pop(context);
               final pickedFile = await picker.pickImage(
@@ -66,7 +72,7 @@ class _RegisterPagesState extends State<RegisterPages> {
           ),
           ListTile(
             leading: const Icon(Icons.photo_library, color: AppColors.blue_500),
-            title: const Text("Galeri"),
+            title: Text("gallery".tr()),
             onTap: () async {
               Navigator.pop(context);
               final pickedFile = await picker.pickImage(
@@ -101,22 +107,63 @@ class _RegisterPagesState extends State<RegisterPages> {
   bool _isLoading = false;
 
   void _finishRegister() async {
+    if (_passwordController.text != _confirmPasswordController.text) {
+      Fluttertoast.showToast(
+        msg: "passwords_not_match".tr(),
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    // Simulate network request
-    await Future.delayed(const Duration(milliseconds: 500));
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+    try {
+      final response = await ServiceLocator.authDataSource.register(
+        _emailController.text,
+        _passwordController.text,
+        _nameController.text,
+        "#000000",
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Register Complete!"),
-        backgroundColor: AppColors.green_500,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-    Navigator.pushReplacementNamed(context, AppRoutes.verification);
+      if (response.statusCode == 201) {
+        Fluttertoast.showToast(
+          msg: "register_success".tr(),
+          backgroundColor: AppColors.green_500,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.TOP,
+        );
+        
+        if (!mounted) return;
+        // Langsung pindah ke Login sesuai permintaan user
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+      }
+    } catch (e) {
+      debugPrint("Register Error: $e");
+      String errorMsg = "Registration failed";
+      
+      if (e is DioException && e.response?.data != null) {
+        final responseData = e.response?.data;
+        if (responseData is Map) {
+          errorMsg = responseData['message'] ?? responseData['error'] ?? errorMsg;
+        } else if (responseData is String) {
+          errorMsg = "register_error".tr();
+        }
+      } else if (e is DioException && e.type == DioExceptionType.connectionTimeout) {
+        errorMsg = "timeout_error".tr();
+      }
+
+      Fluttertoast.showToast(
+        msg: errorMsg,
+        backgroundColor: Colors.red,
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.TOP,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   // Password Logic
@@ -172,7 +219,7 @@ class _RegisterPagesState extends State<RegisterPages> {
                         ),
                       ),
                       Text(
-                        "Register",
+                        "register".tr(),
                         style: theme.textTheme.headlineSmall!.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -227,7 +274,7 @@ class _RegisterPagesState extends State<RegisterPages> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          "Step #${_currentStep + 1} of 3",
+                          "step_of".tr(args: [(_currentStep + 1).toString()]),
                           style: theme.textTheme.bodyMedium!.copyWith(
                             color: theme.colorScheme.primary,
                           ),
@@ -237,7 +284,7 @@ class _RegisterPagesState extends State<RegisterPages> {
                   ),
                   // Next Button
                   PrimaryButton(
-                    text: _currentStep == 2 ? "Finish" : "Next",
+                    text: _currentStep == 2 ? "finish".tr() : "next".tr(),
                     isLoading: _isLoading,
                     onPressed: _nextStep,
                     borderRadius: 14,

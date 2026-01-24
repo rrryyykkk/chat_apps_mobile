@@ -23,35 +23,57 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.neutral_900,
-              ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium!.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : AppColors.neutral_600,
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.neutral_50, // Sesuai design system
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.neutral_200),
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(32), // Fully rounded
+            border: Border.all(
+              color: isDark ? Colors.white12 : AppColors.neutral_200,
+              width: 1.2,
+            ),
+            boxShadow: isDark ? [] : [
+               BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              )
+            ],
           ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
             obscureText: obscureText,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: theme.textTheme.bodyMedium,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: AppColors.neutral_400),
+              hintStyle: TextStyle(color: isDark ? Colors.white30 : AppColors.neutral_300),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              prefixIcon: prefixIcon,
-              suffixIcon: suffixIcon,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18), // Increased for rounded look
+              prefixIcon: prefixIcon != null ? Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: prefixIcon,
+              ) : null,
+              suffixIcon: suffixIcon != null ? Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: suffixIcon,
+              ) : null,
             ),
           ),
         ),

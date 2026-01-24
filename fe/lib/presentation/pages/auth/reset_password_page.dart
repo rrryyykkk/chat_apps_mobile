@@ -1,10 +1,11 @@
 import 'package:fe/config/app_color.dart';
 import 'package:fe/core/widgets/primary_button.dart';
+import 'package:fe/core/widgets/custom_text_field.dart';
 import 'package:fe/presentation/routes/app_routes.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
-/// [ResetPasswordPage] adalah halaman akhir proses pemulihan akun untuk mengatur kata sandi baru.
-/// Memiliki fitur pengecekan kekuatan kata sandi dan konfirmasi kata sandi.
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
 
@@ -13,14 +14,12 @@ class ResetPasswordPage extends StatefulWidget {
 }
 
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  // Kontroller teks untuk input kata sandi baru dan konfirmasinya
   final _passController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _isLoading = false;
   bool _isObscure1 = true;
   bool _isObscure2 = true;
 
-  // Password Logic from Register (Reused)
   bool _min8Char = false;
   bool _hasUpper = false;
   bool _hasLower = false;
@@ -40,25 +39,62 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   void _resetPassword() async {
+    if (!_validatePassword()) {
+      Fluttertoast.showToast(
+        msg: "password_req_min8".tr(), // Fallback or generic message
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+      return;
+    }
 
-
+    if (_passController.text != _confirmController.text) {
+      Fluttertoast.showToast(
+        msg: "passwords_not_match".tr(),
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+      return;
+    }
+    
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+    
+    try {
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!mounted) return;
+      setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Password successfully reset! Please Login.")),
-    );
-    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+      Fluttertoast.showToast(
+        msg: "password_reset_success".tr(),
+        backgroundColor: AppColors.green_500,
+        gravity: ToastGravity.TOP,
+      );
+      
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.login,
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      Fluttertoast.showToast(
+        msg: "password_reset_error".tr(),
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Reset Password"),
+        title: Text("forgot_password_title".tr()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => Navigator.pop(context),
@@ -69,56 +105,51 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Create New Password",
+            Text(
+              "create_new_password_title".tr(),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppColors.blue_500,
               ),
             ),
-             const SizedBox(height: 12),
-            const Text(
-              "Your new password must be different from previous used passwords.",
-              style: TextStyle(color: AppColors.neutral_500),
+            const SizedBox(height: 12),
+            Text(
+              "new_password_instruction".tr(),
+              style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 32),
-            TextField(
+            CustomTextField(
               controller: _passController,
-              onChanged: _checkPassword,
+              label: "new_password_label".tr(),
+              hint: "password_hint".tr(),
               obscureText: _isObscure1,
-              decoration: InputDecoration(
-                labelText: "New Password",
-                prefixIcon: const Icon(Icons.lock_outlined, color: AppColors.blue_500),
-                suffixIcon: IconButton(
-                  icon: Icon(_isObscure1 ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setState(() => _isObscure1 = !_isObscure1),
-                ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.lock_outlined, color: AppColors.blue_500),
+              suffixIcon: IconButton(
+                icon: Icon(_isObscure1 ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _isObscure1 = !_isObscure1),
               ),
             ),
             const SizedBox(height: 12),
-            _buildRequirementItem("Min. 8 characters", _min8Char),
-            _buildRequirementItem("Uppercase Letter (A-Z)", _hasUpper),
-            _buildRequirementItem("Lowercase Letter (a-z)", _hasLower),
-            _buildRequirementItem("Digit (0-9)", _hasDigit),
+            _buildRequirementItem("password_req_min8".tr(), _min8Char),
+            _buildRequirementItem("password_req_upper".tr(), _hasUpper),
+            _buildRequirementItem("password_req_lower".tr(), _hasLower),
+            _buildRequirementItem("password_req_digit".tr(), _hasDigit),
             const SizedBox(height: 24),
-            TextField(
+            CustomTextField(
               controller: _confirmController,
+              label: "confirm_password".tr(),
+              hint: "password_hint".tr(),
               obscureText: _isObscure2,
-              decoration: InputDecoration(
-                labelText: "Confirm Password",
-                prefixIcon: const Icon(Icons.lock_outlined, color: AppColors.blue_500),
-                suffixIcon: IconButton(
-                  icon: Icon(_isObscure2 ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setState(() => _isObscure2 = !_isObscure2),
-                ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.lock_outlined, color: AppColors.blue_500),
+              suffixIcon: IconButton(
+                icon: Icon(_isObscure2 ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _isObscure2 = !_isObscure2),
               ),
             ),
             const SizedBox(height: 32),
             PrimaryButton(
-              text: "Reset Password",
+              text: "reset_password_btn".tr(),
               isLoading: _isLoading,
               onPressed: _resetPassword,
             ),
@@ -129,6 +160,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   Widget _buildRequirementItem(String text, bool isValid) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -142,7 +174,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           Text(
             text,
             style: TextStyle(
-              color: isValid ? AppColors.green_600 : AppColors.neutral_500,
+              color: isValid ? AppColors.green_600 : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
               fontSize: 12,
             ),
           ),

@@ -1,6 +1,7 @@
 import 'package:fe/config/app_color.dart';
 import 'package:fe/data/models/chat_model.dart';
 import 'package:fe/presentation/routes/app_routes.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// [ChatInfoPage] menampilkan detail informasi chat (Single/Group).
@@ -69,7 +70,9 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   
                   // Detail Tambahan (Member count atau Email)
                   Text(
-                    widget.chat.isGroup ? "${widget.chat.participants.length} Members" : "user@email.com", // Placeholder info
+                    widget.chat.isGroup 
+                      ? "members_count".tr(args: [widget.chat.participants.length.toString()]) 
+                      : "user@email.com", // Placeholder info
                     style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           color: AppColors.neutral_500,
                         ),
@@ -91,7 +94,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                       _buildActionItem(
                         icon: Icons.image,
                         color: Colors.purple,
-                        label: "Media, Links, and Docs",
+                        label: "media_links_docs".tr(),
                         trailingBadge: "12", // Contoh count
                         onTap: () {
                            Navigator.pushNamed(context, AppRoutes.mediaLinks);
@@ -105,19 +108,19 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   _buildSectionContainer(
                     children: [
                       _buildToggleItem(
-                        label: "Mute Notifications",
+                        label: "mute_notifications".tr(),
                         value: _isMuted,
                         onChanged: (val) => setState(() => _isMuted = val),
                       ),
                       const Divider(height: 1, color: AppColors.neutral_100),
                       _buildToggleItem(
-                        label: "Chat Lock (Protect)", // Menggunakan _isProtected
+                        label: "chat_lock".tr(), // Menggunakan _isProtected
                         value: _isProtected,
                         onChanged: (val) => setState(() => _isProtected = val),
                       ),
                        const Divider(height: 1, color: AppColors.neutral_100),
                       _buildToggleItem(
-                        label: "Hide Chat",
+                        label: "hide_chat".tr(),
                         value: _isChatHidden,
                         onChanged: (val) => setState(() => _isChatHidden = val),
                       ),
@@ -128,10 +131,10 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   // Section 3: Customization & Utils
                   _buildSectionContainer(
                     children: [
-                       _buildActionItem(
+                        _buildActionItem(
                         icon: Icons.notifications_active,
                         color: Colors.orange,
-                        label: "Custom Notifications",
+                        label: "custom_notifications".tr(),
                         onTap: () {
                           Navigator.pushNamed(context, AppRoutes.customNotification);
                         },
@@ -140,7 +143,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                        _buildActionItem(
                         icon: Icons.color_lens,
                         color: Colors.pink,
-                        label: "Wallpaper & Sound",
+                        label: "wallpaper_sound".tr(),
                         onTap: () {
                            Navigator.pushNamed(context, AppRoutes.wallpaperSound);
                         },
@@ -150,7 +153,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                         _buildActionItem(
                         icon: Icons.group_add,
                         color: Colors.blue,
-                        label: "Add to Group",
+                        label: "add_to_group".tr(),
                         onTap: () {
                            Navigator.pushNamed(context, AppRoutes.addToGroup);
                         },
@@ -165,7 +168,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                        _buildActionItem(
                         icon: Icons.flag,
                         color: Colors.red,
-                        label: "Report ${widget.chat.name}",
+                        label: "report_user".tr(args: [widget.chat.name]),
                         textColor: Colors.red,
                         onTap: () {
                           // Implement report logic
@@ -175,7 +178,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                        _buildActionItem(
                         icon: Icons.block,
                         color: Colors.red,
-                        label: "Block ${widget.chat.name}",
+                        label: "block_user".tr(args: [widget.chat.name]),
                          textColor: Colors.red,
                         onTap: () {
                           // Implement block logic

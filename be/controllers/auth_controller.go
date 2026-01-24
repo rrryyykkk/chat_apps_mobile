@@ -4,7 +4,9 @@ import (
 	"chat-app-be/models"
 	"chat-app-be/repositories"
 	"chat-app-be/utils"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -28,7 +30,7 @@ func NewAuthController(repo *repositories.UserRepository) *AuthController {
 func (c *AuthController) GenerateToken(userID, name string) (string, error) {
 	expHours, _ := strconv.Atoi(os.Getenv("JWT_EXPIRATION_HOURS"))
 	if expHours == 0 {
-		expHours = 24
+		expHours = 720 // Default 30 days
 	}
 
 	claims := jwt.MapClaims{
@@ -115,10 +117,15 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	// 3. Generate Token
 	token, _ := c.GenerateToken(user.ID, user.Name)
 
+	// 4. Generate OTP Simulation for Login
+	otpCode := fmt.Sprintf("%06d", rand.Intn(1000000))
+	_, _ = c.UserRepo.CreateOTP(ctx.Request.Context(), user.ID, otpCode)
+	log.Printf("==== [SIMULASI EMAIL LOGIN] OTP untuk %s adalah %s ====", input.Email, otpCode)
+
 	color, _ := user.Color()
 	avatar, _ := user.AvatarURL()
 
-	utils.SuccessResponse(ctx, "Login berhasil!", gin.H{
+	utils.SuccessResponse(ctx, "Login berhasil, silakan verifikasi OTP!", gin.H{
 		"token": token,
 		"user": models.UserResponse{
 			ID:        user.ID,
@@ -145,8 +152,8 @@ func (c *AuthController) ForgotPassword(ctx *gin.Context) {
 		return
 	}
 
-	// 2. Generate OTP 6 angka
-	otpCode := "123456" // Simulasi, aslinya pakai rand
+	// 2. Generate OTP 6 angka secara acak
+	otpCode := fmt.Sprintf("%06d", rand.Intn(1000000))
 	_, err = c.UserRepo.CreateOTP(ctx.Request.Context(), user.ID, otpCode)
 	if err != nil {
 		utils.InternalError(ctx, "Gagal membuat OTP", err)
@@ -157,6 +164,31 @@ func (c *AuthController) ForgotPassword(ctx *gin.Context) {
 	log.Printf("==== [SIMULASI EMAIL] OTP untuk %s adalah %s ====", input.Email, otpCode)
 
 	utils.SuccessResponse(ctx, "Kode OTP berhasil dikirim ke email", nil)
+}
+
+// ResendOTP mengirim ulang OTP (sama seperti forgot password tapi untuk alur login/registrasi)
+func (c *AuthController) ResendOTP(ctx *gin.Context) {
+	var input models.ForgetPasswordDTO // Kita pakai struct yang sama karena isinya cuma Email
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		utils.ValidationErrorResponse(ctx, utils.FormatValidationError(err))
+		return
+	}
+
+	user, err := c.UserRepo.FindByEmail(ctx.Request.Context(), input.Email)
+	if err != nil {
+		utils.ErrorResponse(ctx, http.StatusNotFound, "User tidak ditemukan", nil)
+		return
+	}
+
+	otpCode := fmt.Sprintf("%06d", rand.Intn(1000000))
+	_, err = c.UserRepo.CreateOTP(ctx.Request.Context(), user.ID, otpCode)
+	if err != nil {
+		utils.InternalError(ctx, "Gagal membuat OTP baru", err)
+		return
+	}
+
+	log.Printf("==== [RESEND OTP] OTP untuk %s adalah %s ====", input.Email, otpCode)
+	utils.SuccessResponse(ctx, "Kode OTP baru telah dikirim!", nil)
 }
 
 // ResetPassword merubah password menggunakan OTP
@@ -196,4 +228,43 @@ func (c *AuthController) ResetPassword(ctx *gin.Context) {
 	}
 
 	utils.SuccessResponse(ctx, "Password berhasil diperbarui, silakan login ulang", nil)
+}
+
+// UpdateProfile memperbarui profil user (Nama & Avatar)
+func (c *AuthController) UpdateProfile(ctx *gin.Context) {
+	var input models.UpdateProfileDTO
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		utils.ValidationErrorResponse(ctx, utils.FormatValidationError(err))
+		return
+	}
+
+	// Ambil userID dari context (set oleh JWT Middleware jika ada)
+	// Untuk saat ini, kita akan mencari user berdasarkan Email yang dikirim di body
+	// ATAU jika kita belum punya middleware yang kuat, kita minta userID di body.
+	// Namun, agar konsisten dengan schema, kita butuh userID.
+	// Mari kita tambahkan Email ke UpdateProfileDTO jika perlu, atau asumsikan ada userID.
+	
+	// Skenario aman: Gunakan ID dari params atau body sementara
+	userID := ctx.Query("id") 
+	if userID == "" {
+		utils.BadRequest(ctx, "User ID dibutuhkan", nil)
+		return
+	}
+
+	user, err := c.UserRepo.UpdateUser(ctx.Request.Context(), userID, input.Name, input.AvatarUrl)
+	if err != nil {
+		utils.InternalError(ctx, "Gagal memperbarui profil", err)
+		return
+	}
+
+	color, _ := user.Color()
+	avatar, _ := user.AvatarURL()
+
+	utils.SuccessResponse(ctx, "Profil berhasil diperbarui", models.UserResponse{
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		AvatarUrl: avatar,
+		Color:     color,
+	})
 }

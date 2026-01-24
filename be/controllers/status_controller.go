@@ -5,19 +5,24 @@ import (
 	"chat-app-be/prisma/db"
 	"chat-app-be/repositories"
 	"chat-app-be/utils"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
 
+// StatusController menangani logic status/story
 type StatusController struct {
-	Repo *repositories.StatusRepository
-	WS   *WSController
+	StatusRepo *repositories.StatusRepository
+    ChatRepo   *repositories.ChatRepository
+	WS         *WSController
 }
 
-func NewStatusController(repo *repositories.StatusRepository, ws *WSController) *StatusController {
+// NewStatusController inisialisasi status controller
+func NewStatusController(repo *repositories.StatusRepository, chatRepo *repositories.ChatRepository, ws *WSController) *StatusController {
 	return &StatusController{
-		Repo: repo,
-		WS:   ws,
+		StatusRepo: repo,
+        ChatRepo:   chatRepo,
+		WS:         ws,
 	}
 }
 
@@ -32,7 +37,7 @@ func (c *StatusController) CreateStatus(ctx *gin.Context) {
 		return
 	}
 
-	status, err := c.Repo.CreateStatus(ctx.Request.Context(), userId, input.MediaUrl, input.Caption, db.MediaType(input.Type))
+	status, err := c.StatusRepo.CreateStatus(ctx.Request.Context(), userId, input.MediaUrl, input.Caption, input.Content, input.Color, db.MediaType(input.Type))
 	if err != nil {
 		utils.InternalError(ctx, "Gagal membuat status", err)
 		return
@@ -48,14 +53,66 @@ func (c *StatusController) CreateStatus(ctx *gin.Context) {
 
 // GetStatuses mengambil semua status aktif teman (Updated for filters)
 func (c *StatusController) GetStatuses(ctx *gin.Context) {
-	oldest := ctx.Query("oldest") == "true"
-	statuses, err := c.Repo.GetStatusesWithFilter(ctx.Request.Context(), oldest)
+	userId := ctx.GetString("userID")
+	statuses, err := c.StatusRepo.GetActiveStatuses(ctx.Request.Context(), userId)
 	if err != nil {
-		utils.InternalError(ctx, "Gagal mengambil daftar status", err)
+		utils.InternalError(ctx, "Gagal mengambil status", err)
 		return
 	}
-	utils.SuccessResponse(ctx, "Daftar status ditemukan", statuses)
+	
+	// Transform ke DTO
+	var res []models.StatusDTO
+	for _, s := range statuses {
+		var userResp models.UserResponse
+		statusOwner := s.User()
+		userResp = models.UserResponse{
+			ID:        statusOwner.ID,
+			Name:      statusOwner.Name,
+			Email:     statusOwner.Email,
+		}
+		if v, ok := statusOwner.AvatarURL(); ok {
+			userResp.AvatarUrl = v
+		}
+
+		// Hitung likes & viewers
+		likes := s.Likes()
+		viewers := s.Viewers()
+
+		isLiked := false
+		for _, l := range likes {
+			if l.UserID == userId {
+				isLiked = true
+				break
+			}
+		}
+
+		res = append(res, models.StatusDTO{
+			ID:              s.ID,
+			UserID:          s.UserID,
+			User:            userResp,
+			Type:            string(s.Type),
+			MediaUrl:        getOptionalString(s.MediaURL),
+			Caption:         getOptionalString(s.Caption),
+			Content:         getOptionalString(s.Content),
+			Color:           getOptionalString(s.BackgroundColor),
+			Timestamp:       s.CreatedAt,
+			ExpiresAt:       s.ExpiresAt,
+			LikeCount:       len(likes),
+			ViewerCount:     len(viewers),
+			IsLiked:         isLiked,
+			IsViewed:        false, // Simplifikasi
+		})
+	}
+	utils.SuccessResponse(ctx, "Daftar status ditemukan", res)
 }
+
+func getOptionalString(val (func() (string, bool))) string {
+	if v, ok := val(); ok {
+		return v
+	}
+	return ""
+}
+
 
 // ToggleLike untuk like/unlike status dan memberi notifikasi ke pemilik status.
 func (c *StatusController) ToggleLike(ctx *gin.Context) {
@@ -63,7 +120,7 @@ func (c *StatusController) ToggleLike(ctx *gin.Context) {
 	userId := ctx.GetString("userID")
 	userName := ctx.GetString("userName")
 
-	liked, err := c.Repo.ToggleLike(ctx.Request.Context(), statusId, userId)
+	liked, err := c.StatusRepo.ToggleLike(ctx.Request.Context(), statusId, userId)
 	if err != nil {
 		utils.InternalError(ctx, "Gagal memproses like", err)
 		return
@@ -72,7 +129,7 @@ func (c *StatusController) ToggleLike(ctx *gin.Context) {
 	// Jika di-like, beri tahu pemilik status secara real-time
 	if liked && c.WS != nil {
 		// Ambil data status untuk tahu siapa pemiliknya
-		status, _ := c.Repo.Client.Status.FindUnique(
+		status, _ := c.StatusRepo.Client.Status.FindUnique(
 			db.Status.ID.Equals(statusId),
 		).Exec(ctx.Request.Context())
 
@@ -94,7 +151,7 @@ func (c *StatusController) ViewStatus(ctx *gin.Context) {
 	statusId := ctx.Param("id")
 	userId := ctx.GetString("userID")
 
-	err := c.Repo.AddView(ctx.Request.Context(), statusId, userId)
+	err := c.StatusRepo.AddView(ctx.Request.Context(), statusId, userId)
 	if err != nil {
 		// Just log or ignore if duplicate
 	}
@@ -104,7 +161,7 @@ func (c *StatusController) ViewStatus(ctx *gin.Context) {
 // GetViewers mengambil daftar viewers status
 func (c *StatusController) GetViewers(ctx *gin.Context) {
 	statusId := ctx.Param("id")
-	viewers, err := c.Repo.GetStatusViewers(ctx.Request.Context(), statusId)
+	viewers, err := c.StatusRepo.GetStatusViewers(ctx.Request.Context(), statusId)
 	if err != nil {
 		utils.InternalError(ctx, "Gagal mengambil viewers", err)
 		return
@@ -127,7 +184,7 @@ func (c *StatusController) ReplyStatus(ctx *gin.Context) {
 	}
 
 	// 1. Dapatkan data status target
-	status, _ := c.Repo.Client.Status.FindUnique(
+	status, _ := c.StatusRepo.Client.Status.FindUnique(
 		db.Status.ID.Equals(statusId),
 	).Exec(ctx.Request.Context())
 
@@ -136,14 +193,32 @@ func (c *StatusController) ReplyStatus(ctx *gin.Context) {
 		return
 	}
 
-	// 2. Kirim notifikasi real-time ke pemilik status
-	if c.WS != nil && status.UserID != userId {
-		msg := userName + " membalas status Anda: " + input.Content
-		go c.WS.NotifyUser(status.UserID, "reply", msg, map[string]interface{}{
-			"statusId": statusId,
-			"content":  input.Content,
-		})
+    if status.UserID == userId {
+        utils.BadRequest(ctx, "Tidak bisa membalas status sendiri", nil)
+        return
+    }
+
+    // 2. Buat/Dapatkan Chat Direct antara Pengirim (userId) dan Pemilik Status (status.UserID)
+    chat, err := c.ChatRepo.CreateOrGetDirectChat(ctx.Request.Context(), userId, status.UserID)
+    if err != nil {
+        utils.InternalError(ctx, "Gagal membuat chat", err)
+        return
+    }
+
+    // 3. Buat Pesan di Chat tersebut dengan format reply
+    replyContent := fmt.Sprintf("Replying to your status: %s", input.Content)
+    
+    msg, err := c.ChatRepo.CreateMessage(ctx.Request.Context(), userId, chat.ID, replyContent, db.MessageTypeText)
+    if err != nil {
+        utils.InternalError(ctx, "Gagal mengirim pesan", err)
+        return
+    }
+
+	// 4. Kirim notifikasi real-time CHAT
+	if c.WS != nil {
+		c.WS.NotifyUser(status.UserID, "chat", "New message from "+userName, msg)
+        c.WS.NotifyUser(userId, "chat", "", msg)
 	}
 
-	utils.SuccessResponse(ctx, "Reply berhasil dikirim", nil)
+	utils.SuccessResponse(ctx, "Reply berhasil dikirim", msg)
 }

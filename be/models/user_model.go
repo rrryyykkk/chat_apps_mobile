@@ -24,3 +24,9 @@ type UserResponse struct {
 	AvatarUrl string `json:"avatarUrl"`
 	Color     string `json:"color"`
 }
+
+// UpdateProfileDTO digunakan untuk memperbarui data dasar profil
+type UpdateProfileDTO struct {
+	Name      string `json:"name" binding:"required"`
+	AvatarUrl string `json:"avatarUrl"`
+}

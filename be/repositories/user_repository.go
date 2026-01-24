@@ -87,3 +87,13 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, email, newPassword 
 		db.User.Password.Set(newPassword),
 	).Exec(ctx)
 }
+
+// UpdateUser memperbarui informasi dasar user (Profil)
+func (r *UserRepository) UpdateUser(ctx context.Context, userID, name, avatarUrl string) (*db.UserModel, error) {
+	return r.Client.User.FindUnique(
+		db.User.ID.Equals(userID),
+	).Update(
+		db.User.Name.Set(name),
+		db.User.AvatarURL.Set(avatarUrl),
+	).Exec(ctx)
+}

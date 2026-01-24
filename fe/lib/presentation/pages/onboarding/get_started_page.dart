@@ -1,5 +1,6 @@
 import 'package:fe/config/app_color.dart';
 import 'package:fe/presentation/routes/app_routes.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -17,23 +18,23 @@ class _GetStartedPageState extends State<GetStartedPage> {
   final List<Map<String, String>> _pages = [
     {
       "icon": "assets/getStarted/1.svg",
-      "title": "Group Chatting",
-      "desc": "Connect with multiple members in group chats.",
+      "title": "onboarding_1_title",
+      "desc": "onboarding_1_desc",
     },
     {
       "icon": "assets/getStarted/2.svg",
-      "title": "Video and Voice Calls",
-      "desc": "Instantly connect via video and voice calls.",
+      "title": "onboarding_2_title",
+      "desc": "onboarding_2_desc",
     },
     {
       "icon": "assets/getStarted/3.svg",
-      "title": "Message Encryption",
-      "desc": "Ensure privacy with encrypted messages.",
+      "title": "onboarding_3_title",
+      "desc": "onboarding_3_desc",
     },
     {
       "icon": "assets/getStarted/4.svg",
-      "title": "Cross-Platform Compatibility",
-      "desc": "Access chats on any device seamlessly.",
+      "title": "onboarding_4_title",
+      "desc": "onboarding_4_desc",
     },
   ];
 
@@ -53,7 +54,7 @@ class _GetStartedPageState extends State<GetStartedPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor, // Use theme background
       body: Column(
         children: [
           // ==== PAGE CONTENT ====
@@ -64,30 +65,37 @@ class _GetStartedPageState extends State<GetStartedPage> {
               onPageChanged: (i) => setState(() => _currentPage = i),
               itemBuilder: (context, index) {
                 final page = _pages[index];
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(page["icon"]!, width: 200, height: 200),
-                    const SizedBox(height: 24),
-                    Text(
-                      page["title"]!,
-                      style: theme.textTheme.titleLarge!.copyWith(
-                        color: AppColors.blue_500,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        page["desc"]!,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium!.copyWith(
-                          color: AppColors.blue_400,
+                return Center(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 40),
+                        SvgPicture.asset(page["icon"]!, width: 220, height: 220),
+                        const SizedBox(height: 30),
+                        Text(
+                          page["title"]!.tr(),
+                          style: theme.textTheme.headlineSmall!.copyWith(
+                            color: AppColors.blue_500,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: Text(
+                            page["desc"]!.tr(),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge!.copyWith(
+                              color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ),
-                  ],
+                  ),
                 );
               },
             ),
@@ -99,31 +107,28 @@ class _GetStartedPageState extends State<GetStartedPage> {
             child: Stack(
               alignment: Alignment.bottomCenter,
               children: [
-                // **Wave besar**
                 Positioned(
                   bottom: -150,
                   child: ClipOval(
                     child: Container(
                       width: MediaQuery.of(context).size.width * 2,
                       height: MediaQuery.of(context).size.width * 1.4,
-                      color: AppColors.lightBlue_200,
+                      color: AppColors.lightBlue_200.withValues(alpha: 0.3),
                     ),
                   ),
                 ),
 
-                // **Wave kecil**
                 Positioned(
                   bottom: -170,
                   child: ClipOval(
                     child: Container(
                       width: MediaQuery.of(context).size.width * 1.8,
                       height: MediaQuery.of(context).size.width * 1.2,
-                      color: AppColors.lightBlue_100,
+                      color: AppColors.lightBlue_100.withValues(alpha: 0.3),
                     ),
                   ),
                 ),
 
-                // Tombol + indikator
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
                   child: Column(
@@ -142,8 +147,8 @@ class _GetStartedPageState extends State<GetStartedPage> {
                           ),
                           child: Text(
                             _currentPage == _pages.length - 1
-                                ? "Continue"
-                                : "Get Started",
+                                ? "continue_btn".tr()
+                                : "get_started_btn".tr(),
                             style: theme.textTheme.titleMedium!.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
@@ -162,7 +167,7 @@ class _GetStartedPageState extends State<GetStartedPage> {
                               AppRoutes.login,
                             ),
                             child: Text(
-                              "Skip",
+                              "skip_btn".tr(),
                               style: theme.textTheme.bodyMedium!.copyWith(
                                 color: AppColors.blue_400,
                                 fontWeight: FontWeight.w500,

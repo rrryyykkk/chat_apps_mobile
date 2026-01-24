@@ -1,5 +1,6 @@
 import 'package:fe/config/app_color.dart';
 import 'package:fe/presentation/pages/onboarding/get_started_page.dart';
+import 'package:fe/services/local_storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
@@ -20,15 +21,22 @@ class _SplashPageState extends State<SplashPage>
     _controller = AnimationController(vsync: this);
 
     // Pindah setelah animasi selesai
-    _controller.addStatusListener((status) {
+    _controller.addStatusListener((status) async {
       if (status == AnimationStatus.completed) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (!mounted) return;
+        final token = await LocalStorageService.getToken();
+        
+        if (!mounted) return;
+        
+        if (token != null) {
+          // Token exists, go to Home
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          // No token, go to onboarding
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const GetStartedPage()),
           );
-        });
+        }
       }
     });
   }

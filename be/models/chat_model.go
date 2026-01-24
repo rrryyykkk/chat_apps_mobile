@@ -9,13 +9,17 @@ type MessageDTO struct {
 	ChatID    string    `json:"chatId"`
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
-	Type      string    `json:"type"`   // TEXT, IMAGE, INFO
-	Status    string    `json:"status"` // SENDING, SENT, DELIVERED, READ
+	Type      string    `json:"type"`      // TEXT, IMAGE, VIDEO, DOCUMENT, INFO
+	Status    string    `json:"status"`    // SENDING, SENT, DELIVERED, READ
+	IsDeleted bool      `json:"isDeleted"`
+	ReplyToID string    `json:"replyToId,omitempty"`
 }
 
 // ChatDTO merepresentasikan satu room chat
 type ChatDTO struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"` // Nama user lain atau nama grup
-	IsGroup bool   `json:"isGroup"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name,omitempty"`
+	IsGroup     bool        `json:"isGroup"`
+	LastMessage interface{} `json:"lastMessage,omitempty"`
+	UnreadCount int         `json:"unreadCount"`
 }

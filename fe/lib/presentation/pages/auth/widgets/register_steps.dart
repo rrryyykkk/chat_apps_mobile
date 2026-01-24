@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:fe/config/app_color.dart';
+import 'package:fe/core/widgets/custom_text_field.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -17,29 +19,27 @@ class EmailStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Enter Your Email",
+            "enter_email".tr(),
             style: theme.textTheme.headlineSmall!.copyWith(
               color: theme.colorScheme.primary,
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            "We’ll send a confirmation link to verify your account.",
+            "email_verification_hint".tr(),
             style: theme.textTheme.bodyMedium!.copyWith(
               color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 60),
-          TextField(
+          CustomTextField(
             controller: controller,
+            label: "email".tr(),
+            hint: "email_hint".tr(),
             keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(
-              labelText: "Email",
-              prefixIcon: const Icon(
-                Icons.email_outlined,
-                color: AppColors.blue_500,
-              ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            prefixIcon: const Icon(
+              Icons.email_outlined,
+              color: AppColors.blue_500,
             ),
           ),
         ],
@@ -69,7 +69,7 @@ class NameStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            "Who are you?",
+            "who_are_you".tr(),
             style: theme.textTheme.headlineLarge!.copyWith(
               color: theme.colorScheme.primary,
             ),
@@ -108,16 +108,13 @@ class NameStep extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          TextField(
+          CustomTextField(
             controller: controller,
-            decoration: InputDecoration(
-              labelText: "Full Name",
-              hintText: "Enter your name",
-              prefixIcon: const Icon(
-                Icons.person_outlined,
-                color: AppColors.neutral_700,
-              ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            label: "full_name".tr(),
+            hint: "full_name_hint".tr(),
+            prefixIcon: const Icon(
+              Icons.person_outlined,
+              color: AppColors.blue_500,
             ),
           ),
         ],
@@ -163,59 +160,49 @@ class PasswordStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Set Password",
+            "set_password".tr(),
             style: theme.textTheme.headlineLarge!.copyWith(
               color: theme.colorScheme.primary,
             ),
           ),
           const SizedBox(height: 24),
-          TextField(
+          CustomTextField(
             controller: passwordController,
-            onChanged: onPasswordChanged,
+            label: "password".tr(),
+            hint: "password_hint".tr(),
             obscureText: isObscure1,
-            decoration: InputDecoration(
-              labelText: "Password",
-              prefixIcon: const Icon(
-                Icons.lock_outlined,
-                color: AppColors.blue_500,
-              ),
-              suffixIcon: IconButton(
-                onPressed: onToggleObscure1,
-                icon: Icon(
-                  isObscure1 ? Icons.visibility_off : Icons.visibility,
-                  color: AppColors.neutral_500,
-                ),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+            prefixIcon: const Icon(
+              Icons.lock_outlined,
+              color: AppColors.blue_500,
+            ),
+            suffixIcon: IconButton(
+              onPressed: onToggleObscure1,
+              icon: Icon(
+                isObscure1 ? Icons.visibility_off : Icons.visibility,
+                color: AppColors.neutral_500,
               ),
             ),
           ),
           const SizedBox(height: 12),
-          PasswordRequirementItem(text: "Min. 8 characters", isValid: min8Char),
-          PasswordRequirementItem(text: "Uppercase Letter (A-Z)", isValid: hasUpper),
-          PasswordRequirementItem(text: "Lowercase Letter (a-z)", isValid: hasLower),
-          PasswordRequirementItem(text: "Digit (0-9)", isValid: hasDigit),
-
-          const SizedBox(height: 24),
-          TextField(
+          PasswordRequirementItem(text: "password_req_min8".tr(), isValid: min8Char),
+          PasswordRequirementItem(text: "password_req_upper".tr(), isValid: hasUpper),
+          PasswordRequirementItem(text: "password_req_lower".tr(), isValid: hasLower),
+          PasswordRequirementItem(text: "password_req_digit".tr(), isValid: hasDigit),
+          const SizedBox(height: 32),
+          CustomTextField(
             controller: confirmPasswordController,
+            label: "confirm_password".tr(),
+            hint: "password_hint".tr(),
             obscureText: isObscure2,
-            decoration: InputDecoration(
-              labelText: "Confirm Password",
-              prefixIcon: const Icon(
-                Icons.lock_outlined,
-                color: AppColors.blue_500,
-              ),
-              suffixIcon: IconButton(
-                onPressed: onToggleObscure2,
-                icon: Icon(
-                  isObscure2 ? Icons.visibility_off : Icons.visibility,
-                  color: AppColors.neutral_500,
-                ),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+            prefixIcon: const Icon(
+              Icons.lock_outlined,
+              color: AppColors.blue_500,
+            ),
+            suffixIcon: IconButton(
+              onPressed: onToggleObscure2,
+              icon: Icon(
+                isObscure2 ? Icons.visibility_off : Icons.visibility,
+                color: AppColors.neutral_500,
               ),
             ),
           ),

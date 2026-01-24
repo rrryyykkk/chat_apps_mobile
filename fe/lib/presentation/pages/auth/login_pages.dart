@@ -3,7 +3,13 @@ import 'package:fe/presentation/routes/app_routes.dart';
 import 'package:fe/presentation/pages/auth/register_pages.dart';
 import 'package:fe/presentation/pages/auth/verification_page.dart';
 import 'package:fe/core/widgets/primary_button.dart';
+import 'package:fe/core/network/service_locator.dart';
+import 'package:fe/core/widgets/custom_text_field.dart';
+import 'package:fe/services/local_storage_service.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:dio/dio.dart';
 
 /// [LoginPages] adalah halaman utama untuk autentikasi masuk pengguna.
 /// Berisi input untuk Email dan Password, serta navigasi ke Registrasi atau Lupa Password.
@@ -30,29 +36,78 @@ class _LoginPagesState extends State<LoginPages> {
 
   bool _isLoading = false;
 
-  void login() {
+  void login() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      Fluttertoast.showToast(
+        msg: "fill_fields_error".tr(),
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
-    // Simulate network request
-    // No delay for FE only
+    try {
+      final response = await ServiceLocator.authDataSource.login(
+        _emailController.text,
+        _passwordController.text,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
+      setState(() => _isLoading = false);
 
-    setState(() => _isLoading = false);
+      if (response.statusCode == 200) {
+        final data = response.data['data'];
+        final token = data['token'];
+        final userData = data['user'];
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Login Success!"),
-        backgroundColor: AppColors.green_500,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+        // Simpan token dan data user secara lokal
+        await LocalStorageService.saveToken(token);
+        await LocalStorageService.saveUserId(userData['id']);
+        await LocalStorageService.saveUserData(userData);
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const VerificationPage()),
-    );
+        Fluttertoast.showToast(
+          msg: "login_success".tr(),
+          backgroundColor: AppColors.green_500,
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerificationPage(
+              email: _emailController.text,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Login Error: $e");
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      
+      String errorMsg = "login_error".tr();
+      if (e is DioException) {
+        if (e.type == DioExceptionType.connectionTimeout) {
+          errorMsg = "timeout_error".tr();
+        } else if (e.response?.data != null) {
+          final responseData = e.response?.data;
+          if (responseData is Map) {
+            errorMsg = responseData['message'] ?? responseData['error'] ?? errorMsg;
+          } else {
+            errorMsg = "Invalid server response. Please try again.";
+          }
+        }
+      }
+
+      Fluttertoast.showToast(
+        msg: errorMsg,
+        backgroundColor: Colors.red,
+        gravity: ToastGravity.TOP,
+        toastLength: Toast.LENGTH_LONG,
+      );
+    }
   }
 
   void _goToRegister() {
@@ -94,7 +149,7 @@ class _LoginPagesState extends State<LoginPages> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      "Login",
+                      "login".tr(),
                       style: theme.textTheme.headlineMedium!.copyWith(
                         color: AppColors.white,
                       ),
@@ -103,57 +158,35 @@ class _LoginPagesState extends State<LoginPages> {
                 ),
                 const SizedBox(height: 100),
                 // email Field
-                TextField(
+                CustomTextField(
                   controller: _emailController,
+                  label: "email".tr(),
+                  hint: "email_hint".tr(),
                   keyboardType: TextInputType.emailAddress,
-                  style: theme.textTheme.titleMedium!.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: "Email",
-                    hintText: "Enter Your Email",
-                    labelStyle: theme.textTheme.bodyMedium!.copyWith(
-                      color: AppColors.neutral_400,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.email_outlined,
-                      color: AppColors.blue_500,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  prefixIcon: const Icon(
+                    Icons.email_outlined,
+                    color: AppColors.blue_500,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 // password filed
-                TextField(
+                CustomTextField(
                   controller: _passwordController,
+                  label: "password".tr(),
+                  hint: "password_hint".tr(),
                   obscureText: _obsecurePassword,
-                  style: theme.textTheme.titleMedium!.copyWith(
-                    color: theme.colorScheme.onSurface,
+                  prefixIcon: const Icon(
+                    Icons.lock_outlined,
+                    color: AppColors.blue_500,
                   ),
-                  decoration: InputDecoration(
-                    labelText: "Password",
-                    hintText: "Enter Your Password",
-                    labelStyle: theme.textTheme.bodyMedium!.copyWith(
-                      color: AppColors.neutral_400,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obsecurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: AppColors.neutral_500,
                     ),
-                    prefixIcon: const Icon(
-                      Icons.lock_outlined,
-                      color: AppColors.blue_500,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obsecurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: AppColors.neutral_500,
-                      ),
-                      onPressed: _togglePasswordVisibility,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    onPressed: _togglePasswordVisibility,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -170,7 +203,7 @@ class _LoginPagesState extends State<LoginPages> {
                       ),
                     ),
                     Text(
-                      "Remember Me",
+                      "remember_me".tr(),
                       style: theme.textTheme.bodyMedium!.copyWith(
                         color: theme.colorScheme.onSurface,
                       ),
@@ -182,7 +215,7 @@ class _LoginPagesState extends State<LoginPages> {
                     Navigator.pushNamed(context, AppRoutes.forgotPassword);
                   },
                   child: Text(
-                    "Forget Password",
+                    "forgot_password".tr(),
                     style: theme.textTheme.bodyMedium!.copyWith(
                       color: AppColors.blue_500,
                     ),
@@ -191,7 +224,7 @@ class _LoginPagesState extends State<LoginPages> {
                 const SizedBox(height: 24),
                 // tombol loginya
                 PrimaryButton(
-                  text: "Login",
+                  text: "login".tr(),
                   isLoading: _isLoading,
                   onPressed: login,
                 ),
@@ -200,7 +233,7 @@ class _LoginPagesState extends State<LoginPages> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Don't have an account? ",
+                      "dont_have_account".tr(),
                       style: theme.textTheme.bodyMedium!.copyWith(
                         color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
                       ),
@@ -208,7 +241,7 @@ class _LoginPagesState extends State<LoginPages> {
                     TextButton(
                       onPressed: _goToRegister,
                       child: Text(
-                        "Register",
+                        "register".tr(),
                         style: theme.textTheme.bodyMedium!.copyWith(
                           color: AppColors.blue_500,
                         ),
